@@ -1,0 +1,14 @@
+.*.swp
+__pycache__
+*.egg*
+
+*.pyc
+*.deb
+.pybuild/
+
+**/debian/*.debhelper
+**/debian/files
+**/debian/*.substvars
+**/debian/*.log
+**/debian/*-stamp
+**/debian/*/
