@@ -1,0 +1,21 @@
+Source: wb-update-manager
+Section: admin
+Priority: optional
+Maintainer: Nikita Maslov <nikita.maslov@wirenboard.com>
+Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools, pkg-config
+Standards-Version: 4.5.0
+Homepage: https://github.com/wirenboard/wb-update-manager
+
+Package: python3-wb-update-manager
+Section: python
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}
+Description: Wirenboard software updates and release management tool - python3 library
+
+Package: wb-update-manager
+Architecture: all
+Depends: ${misc:Depends}, python3 (>= 3.5), python3-wb-update-manager (= ${binary:Version})
+Description: Wirenboard software updates and release management tool
+ This package currently includes the library to read release information
+ from Python scripts and the wb-release tool to switch between differrent
+ Wirenboard software releases available.
