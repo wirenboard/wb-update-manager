@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 
-export PYBUILD_NAME=wb_update_manager
+export PYBUILD_NAME=wb-update-manager
 
 %:
 	dh $@ --with python3 --buildsystem pybuild
