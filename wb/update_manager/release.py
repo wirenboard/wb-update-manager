@@ -104,7 +104,7 @@ deb {full_repo_url} {suite} main""".format(full_repo_url=full_repo_url, suite=su
 def add_tmp_apt_preferences(target, filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
     with open(filename, 'w') as f:
         f.write("""Package: *
-Pin: release o=wirenboard a={target}
+Pin: release o=wirenboard, a={target}
 Pin-Priority: 1010""".format(target=target))
 
 
