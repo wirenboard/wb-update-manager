@@ -9,6 +9,7 @@ import os
 import logging
 import argparse
 import atexit
+import textwrap
 from collections import namedtuple
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
@@ -141,7 +142,7 @@ Make sure you have all your data backed up.""", force)
     _system_update(force)
 
     logger.info('Starting (possibly updated) update utility as new process')
-    args = ['python3', '-m', __name__, '-t', target, '--second-stage']
+    args = ['python3', '-m', __name__, '-t', target, '--no-preliminary-update']
     if force:
         args += ['-f']
     _run_cmd(*args)
@@ -173,6 +174,15 @@ Make sure you know what you're doing""")
 
         logger.info('Updating system')
         _system_update(force)
+
+        logger.info('Cleaning up old packages')
+        _run_cmd('apt-get', 'autoremove')
+
+        logger.info('Restarting wb-rules to show actual release info in MQTT')
+        try:
+            _run_cmd('invoke-rc.d', 'wb-rules', 'restart')
+        except subprocess.CalledProcessError:
+            pass
 
         logger.info('Update done! Please reboot the system')
         return
@@ -209,6 +219,16 @@ def update_system(target=None, second_stage=False, force=False, url=None, reset_
         logger.exception('Something went wrong, check logs and try again')
         return 1
 
+def print_banner():
+    info = get_wb_release_info()
+
+    print("Wirenboard release {release_name} (as {suite}), target {target}".format(**info._asdict()))
+
+    if info.repo_prefix:
+        print("This is a DEVELOPMENT release ({}), don't use in production!".format(info.repo_prefix))
+
+    print("\nYou can get this info in scripts from {}.".format(WB_RELEASE_FILENAME))
+
 
 def _run_cmd(*args):
     subprocess.run(args, check=True)
@@ -224,20 +244,30 @@ def _system_update(force=False):
     _run_cmd(*upgrade_cmd)
 
 def main(argv=sys.argv):
-    parser = argparse.ArgumentParser(description='Wirenboard release update tool')
+    parser = argparse.ArgumentParser(description='The tool to manage with Wirenboard releases',
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     epilog=textwrap.dedent('''
+                                     By default, wb-release shows current release info (like -v flag).
+                                     This tool should be used with extra care on production installations.'''))
+
     parser.add_argument('-f', '--force', action='store_true', help='do not ask anything')
     parser.add_argument('-r', '--regenerate', action='store_true', help='regenerate factory sources.list and exit')
     parser.add_argument('-t', '--target', type=str, default=None, help='upgrade release to a new target')
+    parser.add_argument('-v', '--version', action='store_true', help='print version info and exit')
+
     parser.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')
     parser.add_argument('--url', type=str, default=None, help='override repository URL')
-    parser.add_argument('--second-stage', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--no-preliminary-update', action='store_true',
+                        help='skip upgrade before switching (not recommended)')
 
     args = parser.parse_args(argv[1:])
 
     if args.regenerate:
         return regenerate_sources_list(args.target, DEFAULT_REPO_URL if args.reset_url else args.url)
-
-    return update_system(**vars(args))
+    elif args.target:
+        return update_system(**vars(args))
+    else:
+        return print_banner()
 
 if __name__ == '__main__':
     sys.exit(main())
