@@ -11,7 +11,7 @@ import argparse
 import atexit
 import textwrap
 from collections import namedtuple
-from urllib import urljoin
+from urllib.parse import urljoin
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
 RepoInfo = namedtuple('RepoInfo', 'url suite')
@@ -240,7 +240,7 @@ def _system_update(force=False):
     _run_cmd(*upgrade_cmd)
 
 def main(argv=sys.argv):
-    parser = argparse.ArgumentParser(description='The tool to manage with Wirenboard releases',
+    parser = argparse.ArgumentParser(description='The tool to manage Wirenboard software releases',
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      epilog=textwrap.dedent('''
                                      By default, wb-release shows current release info (like -v flag).
