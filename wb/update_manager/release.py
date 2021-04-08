@@ -11,7 +11,7 @@ import argparse
 import atexit
 from collections import namedtuple
 
-ReleaseInfo = namedtuple('ReleaseInfo', 'release_name target snapshot_hash')
+ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
 RepoInfo = namedtuple('RepoInfo', 'url suite')
 
 WB_RELEASE_FILENAME = '/usr/lib/wb-release'
