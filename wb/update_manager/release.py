@@ -11,6 +11,7 @@ import argparse
 import atexit
 import textwrap
 from collections import namedtuple
+from urllib import urljoin
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
 RepoInfo = namedtuple('RepoInfo', 'url suite')
@@ -113,18 +114,13 @@ def cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
     logger.info('Cleaning up temp apt preferences {}'.format(filename))
     os.remove(filename)
 
-
 def regenerate_sources_list(target=None, url=None):
-    try:
-        repo_info = get_wb_repo_info()
-    except NoSuiteInfoError:
-        logger.error('Seems line your current {} is broken, try to fix it first'.format(WB_SOURCES_LIST_FILENAME))
-        return 1
+    release_info = get_wb_release_info()
 
     if not target:
-        target = repo_info.suite
+        target = release_info.suite
     if not url:
-        url = repo_info.url
+        url = urljoin(DEFAULT_REPO_URL, release_info.repo_prefix)
 
     logger.info('Generating {} for suite {}'.format(WB_SOURCES_LIST_FILENAME, target))
     generate_sources_list(target, url=url)
