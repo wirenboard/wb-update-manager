@@ -253,7 +253,7 @@ def main(argv=sys.argv):
 
     parser.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')
     parser.add_argument('--url', type=str, default=None, help='override repository URL')
-    parser.add_argument('--no-preliminary-update', action='store_true',
+    parser.add_argument('--no-preliminary-update', dest='second_stage', action='store_true',
                         help='skip upgrade before switching (not recommended)')
 
     args = parser.parse_args(argv[1:])
