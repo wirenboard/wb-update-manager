@@ -21,7 +21,7 @@ RepoInfo = namedtuple('RepoInfo', 'url suite')
 WB_ORIGIN = 'wirenboard'
 WB_RELEASE_FILENAME = '/usr/lib/wb-release'
 WB_SOURCES_LIST_FILENAME = '/etc/apt/sources.list.d/wirenboard.list'
-WB_RELEASE_PREFERENCES_FILENAME = '/etc/apt/sources.list.d/20wb-release'
+WB_RELEASE_PREFERENCES_FILENAME = '/etc/apt/preferences.d/20wb-release'
 WB_TEMP_UPGRADE_PREFERENCES_FILENAME = '/etc/apt/preferences.d/00wb-release-upgrade-temp'
 DEFAULT_REPO_URL = 'http://deb.wirenboard.com/'
 
@@ -111,7 +111,7 @@ def generate_release_preferences(suite, origin=WB_ORIGIN, filename=WB_RELEASE_PR
     with open(filename, 'w') as f:
         f.write(textwrap.dedent("""
                 Package: *
-                Pin: release o={origin} a={suite}
+                Pin: release o={origin}, a={suite}
                 Pin-Priority: 990""").format(origin=origin, suite=suite).strip())
 
 
@@ -146,6 +146,8 @@ def regenerate_sources_list(target=None, url=None):
 
     logger.info('Generating {} for suite {}'.format(WB_SOURCES_LIST_FILENAME, target))
     generate_sources_list(target, url=url)
+
+    logger.info('Generating {} for suite {}'.format(WB_RELEASE_PREFERENCES_FILENAME, target))
     generate_release_preferences(target)
 
 
