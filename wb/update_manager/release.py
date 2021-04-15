@@ -26,7 +26,7 @@ WB_TEMP_UPGRADE_PREFERENCES_FILENAME = '/etc/apt/preferences.d/00wb-release-upgr
 DEFAULT_REPO_URL = 'http://deb.wirenboard.com/'
 
 logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s')
-logger = logging.getLogger('updater')
+logger = logging.getLogger('wb-release')
 logger.setLevel(logging.INFO)
 
 class NoSuiteInfoError(Exception):
