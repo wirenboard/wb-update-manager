@@ -275,13 +275,16 @@ def update_system(target=None, second_stage=False, url=None, reset_url=False, **
 
     except UserAbortException:
         logger.info('Aborted by user')
-        return 2
+        return 1
     except KeyboardInterrupt:
         logger.info('Interrupted by user')
-        return 2
-    except Exception:
-        logger.exception('Something went wrong, check logs and try again')
         return 1
+    except subprocess.CalledProcessError as e:
+        logger.error("\nThe subprocess {} has failed with status {}".format(e.cmd, e.returncode))
+        return e.returncode
+    except:
+        logger.exception('Something went wrong, check logs and try again')
+        return 2
 
 def print_banner():
     info = get_wb_release_info()
@@ -300,7 +303,14 @@ def _run_cmd(*args):
 
 def _system_update():
     _run_cmd('apt-get', 'update')
-    _run_cmd('apt-get', 'dist-upgrade')
+
+    try:
+        _run_cmd('apt-get', 'dist-upgrade')
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 1:
+            raise UserAbortException()
+        else:
+            raise
 
 
 def main(argv=sys.argv):
@@ -311,7 +321,8 @@ def main(argv=sys.argv):
                                      This tool should be used with extra care on production installations.'''))
 
     parser.add_argument('-r', '--regenerate', action='store_true', help='regenerate factory sources.list and exit')
-    parser.add_argument('-t', '--target', type=str, default=None, help='upgrade release to a new target')
+    parser.add_argument('-t', '--target', type=str, default=None,
+                        help='upgrade release to a new target (stable or testing)')
     parser.add_argument('-v', '--version', action='store_true', help='print version info and exit')
 
     parser.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')
