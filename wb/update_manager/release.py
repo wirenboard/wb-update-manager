@@ -334,7 +334,7 @@ def main(argv=sys.argv):
 
     if args.regenerate:
         return regenerate_sources_list(args.target, DEFAULT_REPO_URL if args.reset_url else args.url)
-    elif args.target:
+    elif args.target or args.reset_url or args.url:
         return update_system(**vars(args))
     else:
         return print_banner()
