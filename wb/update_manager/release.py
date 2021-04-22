@@ -283,7 +283,7 @@ def update_system(target=None, second_stage=False, url=None, reset_url=False, **
         logger.error("\nThe subprocess {} has failed with status {}".format(e.cmd, e.returncode))
         return e.returncode
     except:
-        logger.exception('Something went wrong, check logs and try again')
+        logger.exception('Something went wrong, check output and try again')
         return 2
 
 def print_banner():
