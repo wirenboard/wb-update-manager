@@ -24,6 +24,11 @@ WB_RELEASE_APT_PREFERENCES_FILENAME = '/etc/apt/preferences.d/20wb-release'
 WB_TEMP_UPGRADE_PREFERENCES_FILENAME = '/etc/apt/preferences.d/00wb-release-upgrade-temp'
 DEFAULT_REPO_URL = 'http://deb.wirenboard.com/'
 
+RETCODE_OK = 0
+RETCODE_USER_ABORT = 1
+RETCODE_FAULT = 2
+RETCODE_NO_TARGET = 3
+
 logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger('wb-release')
 logger.setLevel(logging.INFO)
@@ -234,16 +239,16 @@ def update_system(target_state: SystemState, old_state: SystemState, second_stag
 
     except UserAbortException:
         logger.info('Aborted by user')
-        return 1
+        return RETCODE_USER_ABORT
     except KeyboardInterrupt:
         logger.info('Interrupted by user')
-        return 1
+        return RETCODE_USER_ABORT
     except subprocess.CalledProcessError as e:
         logger.error('\nThe subprocess {} has failed with status {}'.format(e.cmd, e.returncode))
         return e.returncode
     except:
         logger.exception('Something went wrong, check output and try again')
-        return 2
+        return RETCODE_FAULT
 
 
 def print_banner():
@@ -276,26 +281,27 @@ def _system_update():
 def route(args, argv):
     if len(argv[1:]) == 0 or args.version:
         print_banner()
-    else:
-        current_state = get_current_state()
+        return RETCODE_OK
 
-        if args.regenerate:
-            return generate_system_config(current_state)
-        else:
-            target_state = get_target_state(current_state,
-                                            reset_url=args.reset_url,
-                                            prefix=args.prefix,
-                                            target_release=args.target_release)
+    current_state = get_current_state()
 
-            if target_state == current_state:
-                logger.info('Target and current releases are the same, nothing to do')
-                return
-            else:
-                if not release_exists(target_state):
-                    logger.error('Target state does not exist: {}'.format(target_state))
-                    return 3
-                else:
-                    return update_system(target_state, current_state, second_stage=args.second_stage)
+    if args.regenerate:
+        return generate_system_config(current_state)
+
+    target_state = get_target_state(current_state,
+                                    reset_url=args.reset_url,
+                                    prefix=args.prefix,
+                                    target_release=args.target_release)
+
+    if target_state == current_state:
+        logger.info('Target and current releases are the same, nothing to do')
+        return RETCODE_OK
+
+    if not release_exists(target_state):
+        logger.error('Target state does not exist: {}'.format(target_state))
+        return RETCODE_NO_TARGET
+
+    return update_system(target_state, current_state, second_stage=args.second_stage)
 
 
 def main(argv=sys.argv):
