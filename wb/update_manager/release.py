@@ -46,8 +46,11 @@ class UserAbortException(Exception):
     pass
 
 
-def user_confirm(text):
+def user_confirm(text, assume_yes=False):
     print('\n' + text + '\n')
+
+    if assume_yes:
+        return
 
     while True:
         result = input('Are you sure you want to continue? (y/n): ').lower()
@@ -164,24 +167,28 @@ def generate_system_config(state):
     generate_release_apt_preferences(state, filename=WB_RELEASE_APT_PREFERENCES_FILENAME)
 
 
-def update_first_stage():
+def update_first_stage(assume_yes=False):
     user_confirm(textwrap.dedent("""
                  Now the system will be updated using Apt without changing the release.
 
                  It is required to get latest state possible
                  to make release change process more controllable.
 
-                 Make sure you have all your data backed up.""").strip())
+                 Make sure you have all your data backed up.""").strip(), assume_yes)
 
     logger.info('Performing upgrade on the current release')
-    _system_update()
+    _system_update(assume_yes)
 
     logger.info('Starting (possibly updated) update utility as new process')
     args = sys.argv + ['--no-preliminary-update']
+
+    if assume_yes:
+        args += ['--yes']
+
     _run_cmd(*args)
 
 
-def update_second_stage(state: SystemState, old_state: SystemState):
+def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=False):
     user_confirm(textwrap.dedent("""
                  Now the release will be switched to {}, prefix "{}".
 
@@ -190,7 +197,8 @@ def update_second_stage(state: SystemState, old_state: SystemState):
 
                  This process is potentially dangerous and may break your software.
 
-                 STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(state.suite, state.repo_prefix).strip())
+                 STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(state.suite, state.repo_prefix).strip(),
+                 assume_yes)
 
     logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
     generate_system_config(state)
@@ -201,10 +209,10 @@ def update_second_stage(state: SystemState, old_state: SystemState):
     atexit.register(cleanup_tmp_apt_preferences, WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
 
     logger.info('Updating system')
-    _system_update()
+    _system_update(assume_yes)
 
     logger.info('Cleaning up old packages')
-    _run_cmd('apt-get', 'autoremove')
+    _run_apt('autoremove', assume_yes)
 
     atexit.unregister(restore_system_config)
 
@@ -234,12 +242,12 @@ def release_exists(state: SystemState):
         return True
 
 
-def update_system(target_state: SystemState, old_state: SystemState, second_stage=False):
+def update_system(target_state: SystemState, old_state: SystemState, second_stage=False, assume_yes=False):
     try:
         if second_stage:
-            return update_second_stage(target_state, old_state)
+            return update_second_stage(target_state, old_state, assume_yes)
         else:
-            return update_first_stage()
+            return update_first_stage(assume_yes)
 
     except UserAbortException:
         logger.info('Aborted by user')
@@ -266,20 +274,27 @@ def print_banner():
     print('\nYou can get this info in scripts from {}.'.format(WB_RELEASE_FILENAME))
 
 
-def _run_cmd(*args):
-    subprocess.run(args, check=True)
-
-
-def _system_update():
-    _run_cmd('apt-get', 'update')
+def _run_apt(cmd, assume_yes=False):
+    args = ['apt-get', cmd]
+    if assume_yes:
+        args += ['--yes', '--allow-downgrades']
 
     try:
-        _run_cmd('apt-get', 'dist-upgrade')
+        _run_cmd(*args)
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             raise UserAbortException()
         else:
             raise
+
+
+def _run_cmd(*args):
+    subprocess.run(args, check=True)
+
+
+def _system_update(assume_yes=False):
+    _run_apt('update', assume_yes)
+    _run_apt('dist-upgrade', assume_yes)
 
 
 def route(args, argv):
@@ -305,7 +320,7 @@ def route(args, argv):
         logger.error('Target state does not exist: {}'.format(target_state))
         return RETCODE_NO_TARGET
 
-    return update_system(target_state, current_state, second_stage=args.second_stage)
+    return update_system(target_state, current_state, second_stage=args.second_stage, assume_yes=args.yes)
 
 
 def main(argv=sys.argv):
@@ -319,6 +334,7 @@ def main(argv=sys.argv):
     parser.add_argument('-t', '--target-release', type=str, default=None,
                         help='upgrade release to a new target (stable or testing)')
     parser.add_argument('-v', '--version', action='store_true', help='print version info and exit')
+    parser.add_argument('-y', '--yes', action='store_true', help='auto "yes" to all questions')
 
     url_group = parser.add_mutually_exclusive_group()
     url_group.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')
