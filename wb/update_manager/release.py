@@ -33,14 +33,18 @@ logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger('wb-release')
 logger.setLevel(logging.INFO)
 
+
 class NoSuiteInfoError(Exception):
     pass
+
 
 class ImpossibleUpdateError(Exception):
     pass
 
+
 class UserAbortException(Exception):
     pass
+
 
 def user_confirm(text):
     print('\n' + text + '\n')
@@ -246,7 +250,7 @@ def update_system(target_state: SystemState, old_state: SystemState, second_stag
     except subprocess.CalledProcessError as e:
         logger.error('\nThe subprocess {} has failed with status {}'.format(e.cmd, e.returncode))
         return e.returncode
-    except:
+    except Exception:
         logger.exception('Something went wrong, check output and try again')
         return RETCODE_FAULT
 
@@ -326,6 +330,7 @@ def main(argv=sys.argv):
     args = parser.parse_args(argv[1:])
 
     return route(args, argv)
+
 
 if __name__ == '__main__':
     sys.exit(main())
