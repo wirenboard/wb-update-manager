@@ -276,11 +276,15 @@ def print_banner():
 
 def _run_apt(cmd, assume_yes=False):
     args = ['apt-get', cmd]
+    env = os.environ.copy()
+
     if assume_yes:
-        args += ['--yes', '--allow-downgrades']
+        args += ['--yes', '--allow-downgrades', '-o', 'Dpkg::Options::=--force-confdef',
+                 '-o', 'Dpkg::Options::=--force-confold']
+        env['DEBIAN_FRONTEND'] = 'noninteractive'
 
     try:
-        _run_cmd(*args)
+        _run_cmd(*args, env=env)
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             raise UserAbortException()
@@ -288,8 +292,8 @@ def _run_apt(cmd, assume_yes=False):
             raise
 
 
-def _run_cmd(*args):
-    subprocess.run(args, check=True)
+def _run_cmd(*args, env=None):
+    subprocess.run(args, env=env, check=True)
 
 
 def _system_update(assume_yes=False):
