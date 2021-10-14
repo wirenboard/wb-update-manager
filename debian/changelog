@@ -1,3 +1,9 @@
+wb-update-manager (1.1.0) stable; urgency=medium
+
+  * add --reset-packages flag to reset versions to released ones
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Thu, 14 Oct 2021 14:30:13 +0300
+
 wb-update-manager (1.0.2) stable; urgency=medium
 
   * add --yes flag to run without questions
