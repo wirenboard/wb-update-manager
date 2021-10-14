@@ -1,0 +1,4 @@
+RELEASE_NAME=staging.01830
+SUITE=testing
+TARGET=wb6/stretch
+REPO_PREFIX=

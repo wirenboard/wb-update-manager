@@ -1,0 +1,7 @@
+# add comment here
+  # and here
+# RELEASE_NAME=trololo
+RELEASE_NAME=wb-2108
+SUITE=stable
+TARGET=wb5/stretch
+REPO_PREFIX=git/my/path

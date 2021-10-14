@@ -12,7 +12,7 @@ import atexit
 import textwrap
 import errno
 from collections import namedtuple
-from urllib.request import urlopen
+import urllib.request
 from urllib.error import HTTPError
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
@@ -55,10 +55,10 @@ def user_confirm(text, assume_yes=False):
         return
 
     while True:
-        result = input('Are you sure you want to continue? (y/n): ').lower()
+        result = input('Are you sure you want to continue? (y/n): ').lower().strip()
         if not result:
             continue
-        if result == 'y':
+        if result[0] == 'y':
             return
         else:
             raise UserAbortException
@@ -151,12 +151,12 @@ def generate_tmp_apt_preferences(target_state: SystemState, origin=WB_ORIGIN,
                 Pin-Priority: -10""").format(origin=origin, suite=target_state.suite).strip())
 
 
-def cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
+def _cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
     logger.info('Cleaning up temp apt preferences {}'.format(filename))
     os.remove(filename)
 
 
-def restore_system_config(original_state):
+def _restore_system_config(original_state):
     logger.info('Restoring original system state')
     generate_system_config(original_state)
 
@@ -179,15 +179,12 @@ def update_first_stage(assume_yes=False):
                  Make sure you have all your data backed up.""").strip(), assume_yes)
 
     logger.info('Performing upgrade on the current release')
-    _system_update(assume_yes)
+    system_update(assume_yes)
 
     logger.info('Starting (possibly updated) update utility as new process')
     args = sys.argv + ['--no-preliminary-update']
 
-    if assume_yes:
-        args += ['--yes']
-
-    _run_cmd(*args)
+    run_cmd(*args)
 
 
 def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=False):
@@ -206,7 +203,7 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
 
         logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
         generate_system_config(state)
-        atexit.register(restore_system_config, old_state)
+        atexit.register(_restore_system_config, old_state)
     else:
         user_confirm(textwrap.dedent("""
                     Now system packages will be reinstalled to their release versions. Some packages may be downgraded.
@@ -217,19 +214,19 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
 
     logger.info('Temporary setting apt preferences to force install release packages')
     generate_tmp_apt_preferences(state, filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
-    atexit.register(cleanup_tmp_apt_preferences, WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
+    atexit.register(_cleanup_tmp_apt_preferences, WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
 
     logger.info('Updating system')
-    _system_update(assume_yes)
+    system_update(assume_yes)
 
     logger.info('Cleaning up old packages')
-    _run_apt('autoremove', assume_yes)
+    run_apt('autoremove', assume_yes)
 
-    atexit.unregister(restore_system_config)
+    atexit.unregister(_restore_system_config)
 
     logger.info('Restarting wb-rules to show actual release info in MQTT')
     try:
-        _run_cmd('invoke-rc.d', 'wb-rules', 'restart')
+        run_cmd('invoke-rc.d', 'wb-rules', 'restart')
     except subprocess.CalledProcessError:
         pass
 
@@ -241,7 +238,7 @@ def release_exists(state: SystemState):
     logger.info('Accessing {}...'.format(full_url))
 
     try:
-        resp = urlopen(full_url, timeout=10.0)
+        resp = urllib.request.urlopen(full_url, timeout=10.0)
         logger.info('Response code {}'.format(resp.getcode()))
     except HTTPError as e:
         if e.code >= 400 and e.code < 500:
@@ -256,9 +253,9 @@ def release_exists(state: SystemState):
 def update_system(target_state: SystemState, old_state: SystemState, second_stage=False, assume_yes=False):
     try:
         if second_stage:
-            return update_second_stage(target_state, old_state, assume_yes)
+            return update_second_stage(target_state, old_state, assume_yes=assume_yes)
         else:
-            return update_first_stage(assume_yes)
+            return update_first_stage(assume_yes=assume_yes)
 
     except UserAbortException:
         logger.info('Aborted by user')
@@ -285,7 +282,7 @@ def print_banner():
     print('\nYou can get this info in scripts from {}.'.format(WB_RELEASE_FILENAME))
 
 
-def _run_apt(cmd, assume_yes=False):
+def run_apt(cmd, assume_yes=False):
     args = ['apt-get', cmd]
     env = os.environ.copy()
 
@@ -295,7 +292,7 @@ def _run_apt(cmd, assume_yes=False):
         env['DEBIAN_FRONTEND'] = 'noninteractive'
 
     try:
-        _run_cmd(*args, env=env)
+        run_cmd(*args, env=env)
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             raise UserAbortException()
@@ -303,13 +300,13 @@ def _run_apt(cmd, assume_yes=False):
             raise
 
 
-def _run_cmd(*args, env=None):
+def run_cmd(*args, env=None):
     subprocess.run(args, env=env, check=True)
 
 
-def _system_update(assume_yes=False):
-    _run_apt('update', assume_yes)
-    _run_apt('dist-upgrade', assume_yes)
+def system_update(assume_yes=False):
+    run_apt('update', assume_yes)
+    run_apt('dist-upgrade', assume_yes)
 
 
 def route(args, argv):
