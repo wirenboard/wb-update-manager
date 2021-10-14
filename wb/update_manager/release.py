@@ -10,6 +10,7 @@ import logging
 import argparse
 import atexit
 import textwrap
+import errno
 from collections import namedtuple
 from urllib.request import urlopen
 from urllib.error import HTTPError
@@ -28,6 +29,7 @@ RETCODE_OK = 0
 RETCODE_USER_ABORT = 1
 RETCODE_FAULT = 2
 RETCODE_NO_TARGET = 3
+RETCODE_EINVAL = errno.EINVAL
 
 logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger('wb-release')
@@ -189,20 +191,29 @@ def update_first_stage(assume_yes=False):
 
 
 def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=False):
-    user_confirm(textwrap.dedent("""
-                 Now the release will be switched to {}, prefix "{}".
+    if state != old_state:
+        user_confirm(textwrap.dedent("""
+                     Now the release will be switched to {}, prefix "{}".
 
-                 During update, the sources and preferences files will be changed,
-                 then apt-get dist-upgrade action will start. Some packages may be downgraded.
+                     During update, the sources and preferences files will be changed,
+                     then apt-get dist-upgrade action will start. Some packages may be downgraded.
 
-                 This process is potentially dangerous and may break your software.
+                     This process is potentially dangerous and may break your software.
 
-                 STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(state.suite, state.repo_prefix).strip(),
-                 assume_yes)
+                     STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
+                         state.suite, state.repo_prefix).strip(),
+                     assume_yes)
 
-    logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
-    generate_system_config(state)
-    atexit.register(restore_system_config, old_state)
+        logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
+        generate_system_config(state)
+        atexit.register(restore_system_config, old_state)
+    else:
+        user_confirm(textwrap.dedent("""
+                    Now system packages will be reinstalled to their release versions. Some packages may be downgraded.
+
+                    This process is potentially dangerous and may break your software.
+
+                    Make sure you have some time to fix system if any."""), assume_yes)
 
     logger.info('Temporary setting apt preferences to force install release packages')
     generate_tmp_apt_preferences(state, filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
@@ -307,24 +318,34 @@ def route(args, argv):
         return RETCODE_OK
 
     current_state = get_current_state()
+    second_stage = args.second_stage
 
     if args.regenerate:
         return generate_system_config(current_state)
 
-    target_state = get_target_state(current_state,
-                                    reset_url=args.reset_url,
-                                    prefix=args.prefix,
-                                    target_release=args.target_release)
+    if args.reset_packages:
+        if args.reset_url or args.prefix or args.target_release:
+            logger.error('--reset-packages flag can\'t be used on release change, abort')
+            return RETCODE_EINVAL
 
-    if target_state == current_state:
-        logger.info('Target and current releases are the same, nothing to do')
-        return RETCODE_OK
+        # skip preliminary update if we are just resetting packages
+        target_state = current_state
+        second_stage = True
+    else:
+        target_state = get_target_state(current_state,
+                                        reset_url=args.reset_url,
+                                        prefix=args.prefix,
+                                        target_release=args.target_release)
+
+        if target_state == current_state:
+            logger.info('Target and current releases are the same, nothing to do')
+            return RETCODE_OK
 
     if not release_exists(target_state):
         logger.error('Target state does not exist: {}'.format(target_state))
         return RETCODE_NO_TARGET
 
-    return update_system(target_state, current_state, second_stage=args.second_stage, assume_yes=args.yes)
+    return update_system(target_state, current_state, second_stage=second_stage, assume_yes=args.yes)
 
 
 def main(argv=sys.argv):
@@ -339,6 +360,8 @@ def main(argv=sys.argv):
                         help='upgrade release to a new target (stable or testing)')
     parser.add_argument('-v', '--version', action='store_true', help='print version info and exit')
     parser.add_argument('-y', '--yes', action='store_true', help='auto "yes" to all questions')
+    parser.add_argument('-p', '--reset-packages', action='store_true',
+                        help='reset all packages to release versions and exit')
 
     url_group = parser.add_mutually_exclusive_group()
     url_group.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')
