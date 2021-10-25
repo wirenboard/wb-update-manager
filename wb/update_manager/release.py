@@ -11,6 +11,7 @@ import argparse
 import atexit
 import textwrap
 import errno
+from datetime import datetime  # this import will be monkeypatched in tests, keep it as is
 from collections import namedtuple
 import urllib.request
 from urllib.error import HTTPError
@@ -24,6 +25,7 @@ WB_SOURCES_LIST_FILENAME = '/etc/apt/sources.list.d/wirenboard.list'
 WB_RELEASE_APT_PREFERENCES_FILENAME = '/etc/apt/preferences.d/20wb-release'
 WB_TEMP_UPGRADE_PREFERENCES_FILENAME = '/etc/apt/preferences.d/00wb-release-upgrade-temp'
 DEFAULT_REPO_URL = 'http://deb.wirenboard.com/'
+DEFAULT_LOG_FILENAME = '/var/log/wb-release/update_{datetime}.log'
 
 RETCODE_OK = 0
 RETCODE_USER_ABORT = 1
@@ -31,9 +33,39 @@ RETCODE_FAULT = 2
 RETCODE_NO_TARGET = 3
 RETCODE_EINVAL = errno.EINVAL
 
-logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s')
 logger = logging.getLogger('wb-release')
-logger.setLevel(logging.INFO)
+
+
+def get_default_log_filename(dt: datetime = datetime.now()):
+    # timespec option is not supported in python 3.5,
+    # so removing microseconds tail by zeroing it explicitly
+    dt_no_us = dt.replace(microsecond=0)
+    return DEFAULT_LOG_FILENAME.format(datetime=dt_no_us.isoformat())
+
+
+def configure_logger(log_filename):
+    logger.setLevel(logging.DEBUG)
+
+    # apt-get reconfigures pty somehow, so CR symbol becomes necessary in stdout,
+    # so it is added to logging format string here
+    # logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s\r')
+    fmt = logging.Formatter(fmt='%(asctime)s %(message)s\r',
+                            datefmt='%H:%M:%S')
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(fmt)
+    stdout_handler.setLevel(logging.INFO)
+    logger.addHandler(stdout_handler)
+
+    if log_filename:
+        file_fmt = logging.Formatter('%(asctime)s %(name)s %(levelname)s: %(message)s')
+        os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+        file_handler = logging.FileHandler(log_filename)
+        file_handler.setFormatter(file_fmt)
+        file_handler.setLevel(logging.DEBUG)
+        logger.addHandler(file_handler)
+
+        logger.info('Update log is written to {}'.format(log_filename))
 
 
 class NoSuiteInfoError(Exception):
@@ -48,8 +80,9 @@ class UserAbortException(Exception):
     pass
 
 
-def user_confirm(text, assume_yes=False):
-    print('\n' + text + '\n')
+def user_confirm(text=None, assume_yes=False):
+    if text:
+        print('\n' + text + '\n')
 
     if assume_yes:
         return
@@ -169,7 +202,7 @@ def generate_system_config(state):
     generate_release_apt_preferences(state, filename=WB_RELEASE_APT_PREFERENCES_FILENAME)
 
 
-def update_first_stage(assume_yes=False):
+def update_first_stage(assume_yes=False, log_filename=None):
     user_confirm(textwrap.dedent("""
                  Now the system will be updated using Apt without changing the release.
 
@@ -179,12 +212,21 @@ def update_first_stage(assume_yes=False):
                  Make sure you have all your data backed up.""").strip(), assume_yes)
 
     logger.info('Performing upgrade on the current release')
-    system_update(assume_yes)
+    run_system_update(assume_yes)
 
     logger.info('Starting (possibly updated) update utility as new process')
     args = sys.argv + ['--no-preliminary-update']
 
-    run_cmd(*args)
+    # preserve update log filename from the first stage
+    if log_filename:
+        args += ['--log-filename', log_filename]
+
+    # close log handlers in this instance to make it free for second one
+    for h in logger.handlers:
+        h.close()
+
+    res = subprocess.run(args, check=True)
+    return res.returncode
 
 
 def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=False):
@@ -217,10 +259,10 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
     atexit.register(_cleanup_tmp_apt_preferences, WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
 
     logger.info('Updating system')
-    system_update(assume_yes)
+    run_system_update(assume_yes)
 
     logger.info('Cleaning up old packages')
-    run_apt('autoremove', assume_yes)
+    run_apt('autoremove', assume_yes=assume_yes)
 
     atexit.unregister(_restore_system_config)
 
@@ -250,12 +292,13 @@ def release_exists(state: SystemState):
         return True
 
 
-def update_system(target_state: SystemState, old_state: SystemState, second_stage=False, assume_yes=False):
+def update_system(target_state: SystemState, old_state: SystemState,
+                  second_stage=False, assume_yes=False, log_filename=None):
     try:
         if second_stage:
             return update_second_stage(target_state, old_state, assume_yes=assume_yes)
         else:
-            return update_first_stage(assume_yes=assume_yes)
+            return update_first_stage(assume_yes=assume_yes, log_filename=log_filename)
 
     except UserAbortException:
         logger.info('Aborted by user')
@@ -269,6 +312,9 @@ def update_system(target_state: SystemState, old_state: SystemState, second_stag
     except Exception:
         logger.exception('Something went wrong, check output and try again')
         return RETCODE_FAULT
+    finally:
+        if log_filename:
+            logger.info('Update log is saved in {}'.format(log_filename))
 
 
 def print_banner():
@@ -282,17 +328,20 @@ def print_banner():
     print('\nYou can get this info in scripts from {}.'.format(WB_RELEASE_FILENAME))
 
 
-def run_apt(cmd, assume_yes=False):
-    args = ['apt-get', cmd]
+def run_apt(*cmd, assume_yes=False):
+    args = ['apt-get', '-q'] + list(cmd)
     env = os.environ.copy()
 
+    env['DEBIAN_FRONTEND'] = 'noninteractive'
+    args += ['-o', 'Dpkg::Options::=--force-confdef',
+             '-o', 'Dpkg::Options::=--force-confold',
+             '--allow-downgrades']
+
     if assume_yes:
-        args += ['--yes', '--allow-downgrades', '-o', 'Dpkg::Options::=--force-confdef',
-                 '-o', 'Dpkg::Options::=--force-confold']
-        env['DEBIAN_FRONTEND'] = 'noninteractive'
+        args += ['--yes']
 
     try:
-        run_cmd(*args, env=env)
+        run_cmd(*args, env=env, log_suffix='apt.{}'.format(cmd[0]))
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             raise UserAbortException()
@@ -300,19 +349,47 @@ def run_apt(cmd, assume_yes=False):
             raise
 
 
-def run_cmd(*args, env=None):
-    subprocess.run(args, env=env, check=True)
+def run_cmd(*args, env=None, log_suffix=None):
+    if not log_suffix:
+        log_suffix = args[0]
+
+    logger.debug('Starting cmd: "{}"'.format(' '.join(list(args))))
+    logger.debug('Environment: "{}"'.format(env))
+
+    proc_logger = logger.getChild(log_suffix)
+
+    proc = subprocess.Popen(args,
+                            env=env,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+
+    with proc.stdout:
+        for line in iter(proc.stdout.readline, b''):
+            proc_logger.info(line.decode().rstrip().rsplit('\r', 1)[-1])
+
+    retcode = proc.wait()
+    if retcode != 0:
+        raise subprocess.CalledProcessError(retcode, args)
 
 
-def system_update(assume_yes=False):
-    run_apt('update', assume_yes)
-    run_apt('dist-upgrade', assume_yes)
+def run_system_update(assume_yes=False):
+    run_apt('update', assume_yes=assume_yes)
+
+    if not assume_yes:
+        logger.info('Simulating upgrade')
+        run_apt('dist-upgrade', '-s', '-V', assume_yes=False)
+        user_confirm(assume_yes=assume_yes)
+
+    logger.info('Performing actual upgrade')
+    run_apt('dist-upgrade', assume_yes=True)
 
 
 def route(args, argv):
     if len(argv[1:]) == 0 or args.version:
         print_banner()
         return RETCODE_OK
+
+    configure_logger(args.log_filename)
 
     current_state = get_current_state()
     second_stage = args.second_stage
@@ -342,7 +419,8 @@ def route(args, argv):
         logger.error('Target state does not exist: {}'.format(target_state))
         return RETCODE_NO_TARGET
 
-    return update_system(target_state, current_state, second_stage=second_stage, assume_yes=args.yes)
+    return update_system(target_state, current_state,
+                         second_stage=second_stage, assume_yes=args.yes, log_filename=args.log_filename)
 
 
 def main(argv=sys.argv):
@@ -359,6 +437,8 @@ def main(argv=sys.argv):
     parser.add_argument('-y', '--yes', action='store_true', help='auto "yes" to all questions')
     parser.add_argument('-p', '--reset-packages', action='store_true',
                         help='reset all packages to release versions and exit')
+    parser.add_argument('-l', '--log-filename', type=str, default=get_default_log_filename(datetime.now()),
+                        help='path to output log file')
 
     url_group = parser.add_mutually_exclusive_group()
     url_group.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')

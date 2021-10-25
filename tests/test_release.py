@@ -4,8 +4,10 @@ import os
 import tempfile
 import argparse
 import urllib.request
+import subprocess
+from datetime import datetime
+from unittest.mock import MagicMock
 from urllib.error import HTTPError
-from subprocess import CalledProcessError
 from types import SimpleNamespace
 from wb.update_manager import release
 
@@ -137,39 +139,47 @@ class TestReleaseExistsChecker:
 class TestAptRunner:
     def patch(self, mocker, side_effect=None):
         self.env = {'ENV1': 'hello'}
+
+        self.expected_env = self.env
+        self.expected_env['DEBIAN_FRONTEND'] = 'noninteractive'
+
+        self.expected_args = ['-o', 'Dpkg::Options::=--force-confdef',
+                              '-o', 'Dpkg::Options::=--force-confold',
+                              '--allow-downgrades']
+
         mocker.patch.object(release, 'run_cmd', side_effect=side_effect)
         mocker.patch('os.environ.copy', return_value=self.env)
 
     def test_no_assume_yes(self, mocker):
         self.patch(mocker)
-        release.run_apt('update')
-        release.run_cmd.assert_called_once_with('apt-get', 'update', env=self.env)
+        release.run_apt('update', assume_yes=False)
+        release.run_cmd.assert_called_once_with('apt-get', '-q', 'update', *self.expected_args,
+                                                env=self.expected_env, log_suffix='apt.update')
 
     def test_assume_yes(self, mocker):
         self.patch(mocker)
         release.run_apt('update', assume_yes=True)
 
-        argv = ['apt-get', 'update', '--yes', '--allow-downgrades',
-                '-o', 'Dpkg::Options::=--force-confdef',
-                '-o', 'Dpkg::Options::=--force-confold']
+        argv = ['apt-get', '-q', 'update'] + self.expected_args + ['--yes']
         env = self.env
-        env['DEBIAN_FRONTEND'] = 'noninteractive'
 
-        release.run_cmd.assert_called_once_with(*argv, env=env)
+        release.run_cmd.assert_called_once_with(*argv, env=env, log_suffix='apt.update')
 
     def test_user_abort(self, mocker):
-        self.patch(mocker, side_effect=CalledProcessError(1, cmd='apt-get'))
+        self.patch(mocker, side_effect=subprocess.CalledProcessError(1, cmd='apt-get'))
         with pytest.raises(release.UserAbortException):
             release.run_apt('update')
-        release.run_cmd.assert_called_once_with('apt-get', 'update', env=self.env)
+        release.run_cmd.assert_called_once_with('apt-get', '-q', 'update', *self.expected_args,
+                                                env=self.expected_env, log_suffix='apt.update')
 
     def test_failure(self, mocker):
-        exc = CalledProcessError(42, cmd='apt-get')
+        exc = subprocess.CalledProcessError(42, cmd='apt-get')
         self.patch(mocker, side_effect=exc)
-        with pytest.raises(CalledProcessError) as exc_info:
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
             release.run_apt('update')
             assert exc_info.value == exc
-        release.run_cmd.assert_called_once_with('apt-get', 'update', env=self.env)
+        release.run_cmd.assert_called_once_with('apt-get', '-q', 'update', *self.expected_args,
+                                                env=self.expected_env, log_suffix='apt.update')
 
 
 @pytest.mark.parametrize('state,result', [
@@ -224,13 +234,29 @@ def test_generate_system_config(mocker):
         state, filename=release.WB_RELEASE_APT_PREFERENCES_FILENAME)
 
 
-@pytest.mark.parametrize('assume_yes', [True, False])
-def test_system_update(mocker, assume_yes):
+def test_system_update_manual(mocker):
     mocker.patch.object(release, 'run_apt')
-    release.system_update(assume_yes)
+    mocker.patch.object(release, 'user_confirm')
+
+    release.run_system_update(assume_yes=False)
+
     release.run_apt.assert_has_calls([
-        mocker.call('update', assume_yes),
-        mocker.call('dist-upgrade', assume_yes)
+        mocker.call('update', assume_yes=False),
+        mocker.call('dist-upgrade', '-s', '-V', assume_yes=False),
+        mocker.call('dist-upgrade', assume_yes=True)
+    ], any_order=False)
+
+    release.user_confirm.assert_called_once_with(assume_yes=False)
+
+
+def test_system_update_assume_yes(mocker):
+    mocker.patch.object(release, 'run_apt')
+
+    release.run_system_update(assume_yes=True)
+
+    release.run_apt.assert_has_calls([
+        mocker.call('update', assume_yes=True),
+        mocker.call('dist-upgrade', assume_yes=True)
     ], any_order=False)
 
 
@@ -240,6 +266,7 @@ class TestRoute:
         mocker.patch.object(release, 'update_system', return_value=release.RETCODE_OK)
         mocker.patch.object(release, 'generate_system_config', return_value=release.RETCODE_OK)
         mocker.patch.object(release, 'print_banner')
+        mocker.patch.object(release, 'configure_logger')
 
         # additional info sources
         mocker.patch.object(release, 'get_current_state', return_value=system_state)
@@ -254,9 +281,11 @@ class TestRoute:
             'reset_packages': False,
             'reset_url': False,
             'prefix': None,
-            'second_stage': False}
+            'second_stage': False,
+            'log_filename': None,
+        }
         new_kwargs.update(**kwargs)
-        return SimpleNamespace(**new_kwargs)
+        return argparse.Namespace(**new_kwargs)
 
     def test_print_banner_empty(self, mocker):
         self.patch(mocker)
@@ -272,7 +301,8 @@ class TestRoute:
         state = release.SystemState('testing', 'wb6/stretch', '')
         self.patch(mocker, state)
         assert release.RETCODE_OK == release.route(args=self.make_args(reset_packages=True), argv=['test', '-p'])
-        release.update_system.assert_called_once_with(state, state, second_stage=True, assume_yes=False)
+        release.update_system.assert_called_once_with(state, state, second_stage=True,
+                                                      assume_yes=False, log_filename=None)
 
     def test_reset_packages_conflict(self, mocker):
         self.patch(mocker)
@@ -300,7 +330,8 @@ class TestRoute:
         self.patch(mocker, state)
         assert release.RETCODE_OK == release.route(args=self.make_args(target_release='stable'), argv=['test', '-t'])
         release.release_exists.assert_called_once_with(new_state)
-        release.update_system.assert_called_once_with(new_state, state, second_stage=False, assume_yes=False)
+        release.update_system.assert_called_once_with(new_state, state, second_stage=False,
+                                                      assume_yes=False, log_filename=None)
 
     def test_new_state_not_exist(self, mocker):
         state = release.SystemState('testing', 'wb6/stretch', '')
@@ -314,21 +345,30 @@ class TestRoute:
 
 class TestArgParser:
     def patch(self, mocker, return_value=release.RETCODE_OK):
+        fake_now = datetime(2021, 10, 18, 12, 00, 42)
+        datetime_mock = MagicMock(wraps=datetime)
+        datetime_mock.now.return_value = fake_now
+        mocker.patch.object(release, 'datetime', datetime_mock)
+
+        self.log_filename = release.get_default_log_filename(fake_now)
+
         args = {
             'regenerate': False,
             'target_release': None,
             'version': False,
             'yes': False,
             'reset_packages': False,
+            'log_filename': self.log_filename,
             'reset_url': False,
             'prefix': None,
-            'second_stage': False
+            'second_stage': False,
         }
         self.default_args = argparse.Namespace(**args)
         mocker.patch.object(release, 'route', return_value=return_value)
 
     def test_no_args(self, mocker):
         self.patch(mocker)
+
         argv = ['wb-release']
         release.main(argv)
         release.route.assert_called_once_with(self.default_args, argv)
@@ -356,12 +396,12 @@ class TestUpdate:
         self.patch(mocker)
 
         assert release.RETCODE_OK == release.update_system(self.new_state, self.old_state, second_stage=False)
-        release.update_first_stage.assert_called_once_with(assume_yes=False)
+        release.update_first_stage.assert_called_once_with(assume_yes=False, log_filename=None)
         release.update_second_stage.assert_not_called()
 
     @pytest.mark.parametrize('exception,retcode', [
         (release.UserAbortException, release.RETCODE_USER_ABORT),
-        (CalledProcessError(returncode=42, cmd='test'), 42),
+        (subprocess.CalledProcessError(returncode=42, cmd='test'), 42),
         (KeyboardInterrupt, release.RETCODE_USER_ABORT),
         (Exception, release.RETCODE_FAULT)
     ])
@@ -374,7 +414,7 @@ class TestUpdate:
             release.update_second_stage.assert_called_once_with(self.new_state, self.old_state, assume_yes=False)
             release.update_first_stage.assert_not_called()
         else:
-            release.update_first_stage.assert_called_once_with(assume_yes=False)
+            release.update_first_stage.assert_called_once_with(assume_yes=False, log_filename=None)
             release.update_second_stage.assert_not_called()
 
 
@@ -382,7 +422,7 @@ class TestUpdateStageBase:
     def patch(self, mocker, confirm=True):
         side_effect = None if confirm else release.UserAbortException
         mocker.patch.object(release, 'user_confirm', side_effect=side_effect)
-        mocker.patch.object(release, 'system_update')
+        mocker.patch.object(release, 'run_system_update')
         mocker.patch.object(release, 'run_cmd')
 
 
@@ -391,14 +431,27 @@ class TestUpdateFirstStage(TestUpdateStageBase):
         super().patch(mocker, confirm=confirm)
 
         mocker.patch('sys.argv', argv)
+        mocker.patch('subprocess.run')
 
     def test_no_confirm(self, mocker):
         self.patch(mocker, confirm=False)
 
         with pytest.raises(release.UserAbortException):
-            release.update_first_stage(False)
+            release.update_first_stage(assume_yes=False)
 
-        release.system_update.assert_not_called()
+        release.run_system_update.assert_not_called()
+
+    @pytest.mark.parametrize('assume_yes', [True, False])
+    def test_confirmed_log_forward(self, mocker, assume_yes):
+        log_filename = '/my/log/filename.log'
+        argv = ['wb-release', '-t', 'testing']
+        self.patch(mocker, argv=argv)
+
+        release.update_first_stage(assume_yes=assume_yes, log_filename=log_filename)
+
+        release.run_system_update.assert_called_once_with(assume_yes)
+        subprocess.run.assert_called_once_with((argv + ['--no-preliminary-update', '--log-filename', log_filename]),
+                                               check=True)
 
     @pytest.mark.parametrize('assume_yes', [True, False])
     def test_confirmed(self, mocker, assume_yes):
@@ -407,8 +460,8 @@ class TestUpdateFirstStage(TestUpdateStageBase):
 
         release.update_first_stage(assume_yes)
 
-        release.system_update.assert_called_once_with(assume_yes)
-        release.run_cmd.assert_called_once_with(*(argv + ['--no-preliminary-update']))
+        release.run_system_update.assert_called_once_with(assume_yes)
+        subprocess.run.assert_called_once_with((argv + ['--no-preliminary-update']), check=True)
 
 
 class TestUpdateSecondStage(TestUpdateStageBase):
@@ -430,7 +483,7 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         with pytest.raises(release.UserAbortException):
             release.update_second_stage(self.new_state, self.old_state, assume_yes=False)
 
-        release.system_update.assert_not_called()
+        release.run_system_update.assert_not_called()
         release.run_apt.assert_not_called()
         release.generate_system_config.assert_not_called()
         release.generate_tmp_apt_preferences.assert_not_called()
@@ -444,8 +497,8 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         release.generate_system_config.assert_not_called()
         release.generate_tmp_apt_preferences.assert_called_once_with(
             self.old_state, filename=release.WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
-        release.system_update.assert_called_once_with(assume_yes)
-        release.run_apt.assert_called_once_with('autoremove', assume_yes)
+        release.run_system_update.assert_called_once_with(assume_yes)
+        release.run_apt.assert_called_once_with('autoremove', assume_yes=assume_yes)
 
     @pytest.mark.parametrize('assume_yes', [True, False])
     def test_upgrade_release(self, mocker, assume_yes):
@@ -456,5 +509,5 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         release.generate_system_config.assert_called_once_with(self.new_state)
         release.generate_tmp_apt_preferences.assert_called_once_with(
             self.new_state, filename=release.WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
-        release.system_update.assert_called_once_with(assume_yes)
-        release.run_apt.assert_called_once_with('autoremove', assume_yes)
+        release.run_system_update.assert_called_once_with(assume_yes)
+        release.run_apt.assert_called_once_with('autoremove', assume_yes=assume_yes)
