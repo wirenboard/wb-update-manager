@@ -1,0 +1,5 @@
+# test comment
+# more comments here
+#   even this
+#deb http://non.existing.org/debian release main
+deb http://deb.wirenboard.com/wb6/stretch wb-2108 main

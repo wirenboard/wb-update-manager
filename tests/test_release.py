@@ -62,52 +62,55 @@ class TestWbReleaseReader:
 
 
 class TestSystemStateReader:
-    @pytest.mark.parametrize('filename,result', [
-        ('wb-release.1.txt', release.SystemState('testing', 'wb6/stretch', '')),
-        ('wb-release.2.txt', release.SystemState('stable', 'wb5/stretch', 'git/my/path'))
+    @pytest.mark.parametrize('wb_release,sources_list,result', [
+        ('wb-release.1.txt', 'sources.3.list', release.SystemState('testing', 'wb6/stretch', '', True)),
+        ('wb-release.2.txt', 'sources.4.list', release.SystemState('stable', 'wb5/stretch', 'git/my/path', True)),
+        ('wb-release.2.txt', 'sources.3.list', release.SystemState('stable', 'wb5/stretch', 'git/my/path', False))
     ])
-    def test_read(self, filename, result):
-        assert release.get_current_state(os.path.join(DATA_PATH, filename)) == result
+    def test_read(self, wb_release, sources_list, result):
+        assert release.get_current_state(os.path.join(DATA_PATH, wb_release),
+                                         os.path.join(DATA_PATH, sources_list)) == result
 
     @pytest.mark.parametrize('filename', ['wb-release.err.1.txt', 'wb-release.err.2.txt'])
     def test_error(self, filename):
         with pytest.raises(Exception):
-            release.get_current_state(os.path.join(DATA_PATH, filename))
+            release.get_current_state(os.path.join(DATA_PATH, filename), os.path.join(DATA_PATH, 'sources.3.list'))
 
 
 class TestTargetStateGenerator:
     def test_impossible_update(self):
         with pytest.raises(release.ImpossibleUpdateError):
-            release.get_target_state(release.SystemState('some', 'thing', 'here'), reset_url=True, prefix='new/prefix')
+            release.get_target_state(release.SystemState('some', 'thing', 'here', True),
+                                     reset_url=True, prefix='new/prefix')
 
     def test_change_prefix(self):
-        old_state = release.SystemState('testing', 'wb6/stretch', '')
-        new_state = release.SystemState('testing', 'wb6/stretch', 'new/prefix')
+        old_state = release.SystemState('testing', 'wb6/stretch', '', True)
+        new_state = release.SystemState('testing', 'wb6/stretch', 'new/prefix', True)
 
         assert new_state == release.get_target_state(old_state, prefix='new/prefix')
 
     def test_reset_prefix(self):
-        old_state = release.SystemState('testing', 'wb6/stretch', 'old/prefix')
-        new_state = release.SystemState('testing', 'wb6/stretch', '')
+        old_state = release.SystemState('testing', 'wb6/stretch', 'old/prefix', True)
+        new_state = release.SystemState('testing', 'wb6/stretch', '', True)
 
         assert new_state == release.get_target_state(old_state, reset_url=True)
 
     def test_change_release(self):
-        old_state = release.SystemState('testing', 'wb6/stretch', '')
-        new_state = release.SystemState('stable', 'wb6/stretch', '')
+        old_state = release.SystemState('testing', 'wb6/stretch', '', True)
+        new_state = release.SystemState('stable', 'wb6/stretch', '', True)
 
         assert new_state == release.get_target_state(old_state, target_release='stable')
 
     def test_change_release_keep_prefix(self):
-        old_state = release.SystemState('testing', 'wb6/stretch', 'my/prefix')
-        new_state = release.SystemState('stable', 'wb6/stretch', 'my/prefix')
+        old_state = release.SystemState('testing', 'wb6/stretch', 'my/prefix', True)
+        new_state = release.SystemState('stable', 'wb6/stretch', 'my/prefix', True)
 
         assert new_state == release.get_target_state(old_state, target_release='stable')
 
 
 class TestReleaseExistsChecker:
     def patch(self, mocker, side_effect=None):
-        self.state = release.SystemState('testing', 'wb6/stretch', 'my/prefix')
+        self.state = release.SystemState('testing', 'wb6/stretch', 'my/prefix', True)
         self.url = "http://deb.wirenboard.com/my/prefix/wb6/stretch/dists/testing/Release"
 
         ret = SimpleNamespace(getcode=lambda: 200)
@@ -183,11 +186,11 @@ class TestAptRunner:
 
 
 @pytest.mark.parametrize('state,result', [
-    (release.SystemState('testing', 'wb6/stretch', ''),
+    (release.SystemState('testing', 'wb6/stretch', '', True),
      'deb http://deb.wirenboard.com/wb6/stretch testing main'),
-    (release.SystemState('wb-2108', 'wb6/stretch', 'my/prefix'),
+    (release.SystemState('wb-2108', 'wb6/stretch', 'my/prefix', True),
      'deb http://deb.wirenboard.com/my/prefix/wb6/stretch wb-2108 main'),
-    (release.SystemState('staging', 'all', ''),
+    (release.SystemState('staging', 'all', '', True),
      'deb http://deb.wirenboard.com/all staging main')
 ])
 def test_sources_list_generator(state, result):
@@ -197,9 +200,9 @@ def test_sources_list_generator(state, result):
 
 
 @pytest.mark.parametrize('state,result', [
-    (release.SystemState('testing', 'wb6/stretch', ''),
+    (release.SystemState('testing', 'wb6/stretch', '', True),
      "Package: *\nPin: release o=wirenboard, a=testing\nPin-Priority: 990"),
-    (release.SystemState('wb-2108', 'wb6/stretch', 'my/prefix'),
+    (release.SystemState('wb-2108', 'wb6/stretch', 'my/prefix', True),
      "Package: *\nPin: release o=wirenboard, a=wb-2108\nPin-Priority: 990")
 ])
 def test_release_apt_preferences_generator(state, result):
@@ -209,9 +212,9 @@ def test_release_apt_preferences_generator(state, result):
 
 
 @pytest.mark.parametrize('state,result', [
-    (release.SystemState('testing', 'wb6/stretch', ''),
+    (release.SystemState('testing', 'wb6/stretch', '', True),
      "Package: *\nPin: release o=wirenboard, a=testing\nPin-Priority: 1010"),
-    (release.SystemState('wb-2108', 'wb6/stretch', 'my/prefix'),
+    (release.SystemState('wb-2108', 'wb6/stretch', 'my/prefix', True),
      "Package: *\nPin: release o=wirenboard, a=wb-2108\nPin-Priority: 1010")
 ])
 def test_tmp_apt_preferences_generator(state, result):
@@ -224,7 +227,7 @@ def test_tmp_apt_preferences_generator(state, result):
 def test_generate_system_config(mocker):
     mocker.patch.object(release, 'generate_sources_list')
     mocker.patch.object(release, 'generate_release_apt_preferences')
-    state = release.SystemState('testing', 'wb6/stretch', 'my/prefix')
+    state = release.SystemState('testing', 'wb6/stretch', 'my/prefix', True)
 
     release.generate_system_config(state)
 
@@ -260,8 +263,16 @@ def test_system_update_assume_yes(mocker):
     ], any_order=False)
 
 
+@pytest.mark.parametrize('filename,expected', [
+    ('sources.1.list', 'wb-2108'),
+    ('sources.2.list', 'wb-2108')
+])
+def test_apt_sources_list_suite_reader(filename, expected):
+    assert release.read_apt_sources_list_suite(os.path.join(DATA_PATH, filename)) == expected
+
+
 class TestRoute:
-    def patch(self, mocker, system_state=release.SystemState('testing', 'wb6/stretch', ''), release_exists=True):
+    def patch(self, mocker, system_state=release.SystemState('testing', 'wb6/stretch', '', True), release_exists=True):
         # possible actions
         mocker.patch.object(release, 'update_system', return_value=release.RETCODE_OK)
         mocker.patch.object(release, 'generate_system_config', return_value=release.RETCODE_OK)
@@ -298,7 +309,7 @@ class TestRoute:
         release.print_banner.assert_called_once_with()
 
     def test_reset_packages_route(self, mocker):
-        state = release.SystemState('testing', 'wb6/stretch', '')
+        state = release.SystemState('testing', 'wb6/stretch', '', True)
         self.patch(mocker, state)
         assert release.RETCODE_OK == release.route(args=self.make_args(reset_packages=True), argv=['test', '-p'])
         release.update_system.assert_called_once_with(state, state, second_stage=True,
@@ -314,19 +325,19 @@ class TestRoute:
             reset_packages=True, prefix='new/prefix'), argv=['test', '-p'])
 
     def test_regenerate_config(self, mocker):
-        state = release.SystemState('testing', 'wb6/stretch', '')
+        state = release.SystemState('testing', 'wb6/stretch', '', True)
         self.patch(mocker, state)
         assert release.RETCODE_OK == release.route(args=self.make_args(regenerate=True), argv=['test', '-r'])
         release.generate_system_config.assert_called_once_with(state)
 
     def test_same_state(self, mocker):
-        state = release.SystemState('testing', 'wb6/stretch', '')
+        state = release.SystemState('testing', 'wb6/stretch', '', True)
         self.patch(mocker, state)
         assert release.RETCODE_OK == release.route(args=self.make_args(target_release='testing'), argv=['test', '-t'])
 
     def test_new_state_exists(self, mocker):
-        state = release.SystemState('testing', 'wb6/stretch', '')
-        new_state = release.SystemState('stable', 'wb6/stretch', '')
+        state = release.SystemState('testing', 'wb6/stretch', '', True)
+        new_state = release.SystemState('stable', 'wb6/stretch', '', True)
         self.patch(mocker, state)
         assert release.RETCODE_OK == release.route(args=self.make_args(target_release='stable'), argv=['test', '-t'])
         release.release_exists.assert_called_once_with(new_state)
@@ -334,13 +345,22 @@ class TestRoute:
                                                       assume_yes=False, log_filename=None)
 
     def test_new_state_not_exist(self, mocker):
-        state = release.SystemState('testing', 'wb6/stretch', '')
-        new_state = release.SystemState('stable', 'wb6/stretch', '')
+        state = release.SystemState('testing', 'wb6/stretch', '', True)
+        new_state = release.SystemState('stable', 'wb6/stretch', '', True)
         self.patch(mocker, state, release_exists=False)
         assert release.RETCODE_NO_TARGET == release.route(
             args=self.make_args(target_release='stable'), argv=['test', '-t'])
         release.release_exists.assert_called_once_with(new_state)
         release.update_system.assert_not_called()
+
+    def test_old_state_inconsistent(self, mocker):
+        state = release.SystemState('testing', 'wb6/stretch', '', False)
+        new_state = release.SystemState('testing', 'wb6/stretch', '', True)
+        self.patch(mocker, state)
+        assert release.RETCODE_OK == release.route(args=self.make_args(target_release='testing'), argv=['test', '-t'])
+        release.release_exists.assert_called_once_with(new_state)
+        release.update_system.assert_called_once_with(new_state, state, second_stage=False,
+                                                      assume_yes=False, log_filename=None)
 
 
 class TestArgParser:
@@ -386,8 +406,8 @@ class TestArgParser:
 
 class TestUpdate:
     def patch(self, mocker, raise_exc=None, return_value=release.RETCODE_OK):
-        self.old_state = release.SystemState('testing', 'wb6/stretch', '')
-        self.new_state = release.SystemState('stable', 'wb6/stretch', '')
+        self.old_state = release.SystemState('testing', 'wb6/stretch', '', True)
+        self.new_state = release.SystemState('stable', 'wb6/stretch', '', True)
 
         mocker.patch.object(release, 'update_first_stage', return_value=return_value, side_effect=raise_exc)
         mocker.patch.object(release, 'update_second_stage', return_value=return_value, side_effect=raise_exc)
@@ -468,8 +488,8 @@ class TestUpdateSecondStage(TestUpdateStageBase):
     def patch(self, mocker, confirm=True):
         super().patch(mocker, confirm=confirm)
 
-        self.old_state = release.SystemState('testing', 'wb6/stretch', '')
-        self.new_state = release.SystemState('stable', 'wb6/stretch', '')
+        self.old_state = release.SystemState('testing', 'wb6/stretch', '', True)
+        self.new_state = release.SystemState('stable', 'wb6/stretch', '', True)
 
         mocker.patch.object(release, 'generate_system_config')
         mocker.patch.object(release, 'generate_tmp_apt_preferences')
@@ -498,7 +518,7 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         release.generate_tmp_apt_preferences.assert_called_once_with(
             self.old_state, filename=release.WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
         release.run_system_update.assert_called_once_with(assume_yes)
-        release.run_apt.assert_called_once_with('autoremove', assume_yes=assume_yes)
+        release.run_apt.assert_called_once_with('autoremove', assume_yes=True)
 
     @pytest.mark.parametrize('assume_yes', [True, False])
     def test_upgrade_release(self, mocker, assume_yes):
@@ -510,4 +530,4 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         release.generate_tmp_apt_preferences.assert_called_once_with(
             self.new_state, filename=release.WB_TEMP_UPGRADE_PREFERENCES_FILENAME)
         release.run_system_update.assert_called_once_with(assume_yes)
-        release.run_apt.assert_called_once_with('autoremove', assume_yes=assume_yes)
+        release.run_apt.assert_called_once_with('autoremove', assume_yes=True)
