@@ -1,3 +1,12 @@
+wb-update-manager (1.2.2) stable; urgency=medium
+
+  * run autoremove without confirmation
+  * cleanup apt lists cache on errors
+  * retry upgrade if system state is inconsistent (interrupted during
+    dist-upgrade)
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Sun, 26 Dec 2021 15:21:09 +0300
+
 wb-update-manager (1.2.0) stable; urgency=medium
 
   * write update logs to file in /var/log/wb-release

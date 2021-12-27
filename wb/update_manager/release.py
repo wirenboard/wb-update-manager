@@ -11,13 +11,14 @@ import argparse
 import atexit
 import textwrap
 import errno
+import shutil
 from datetime import datetime  # this import will be monkeypatched in tests, keep it as is
 from collections import namedtuple
 import urllib.request
 from urllib.error import HTTPError
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
-SystemState = namedtuple('SystemState', 'suite target repo_prefix')
+SystemState = namedtuple('SystemState', 'suite target repo_prefix consistent')
 
 WB_ORIGIN = 'wirenboard'
 WB_RELEASE_FILENAME = '/usr/lib/wb-release'
@@ -109,9 +110,23 @@ def read_wb_release_file(filename):
     return ReleaseInfo(**d)
 
 
-def get_current_state(filename=WB_RELEASE_FILENAME) -> SystemState:
+def read_apt_sources_list_suite(filename) -> str:
+    with open(filename) as f:
+        for line in f:
+            line = line.partition('#')[0].rstrip()
+            if line.startswith('deb http'):
+                return line.split(' ', maxsplit=4)[2]
+
+    raise NoSuiteInfoError()
+
+
+def get_current_state(filename=WB_RELEASE_FILENAME, sources_filename=WB_SOURCES_LIST_FILENAME) -> SystemState:
     release_info = read_wb_release_file(filename)
-    return SystemState(release_info.suite, release_info.target, release_info.repo_prefix)
+    sources_list_suite = read_apt_sources_list_suite(sources_filename)
+
+    consistent = (release_info.suite == sources_list_suite)
+
+    return SystemState(release_info.suite, release_info.target, release_info.repo_prefix, consistent)
 
 
 def get_target_state(old_state: SystemState, reset_url=False, prefix=None, target_release=None) -> SystemState:
@@ -132,7 +147,7 @@ def get_target_state(old_state: SystemState, reset_url=False, prefix=None, targe
 
     new_prefix = new_prefix.strip(' /')
 
-    return SystemState(new_suite, old_state.target, new_prefix)
+    return SystemState(new_suite, old_state.target, new_prefix, consistent=True)
 
 
 def make_full_repo_url(state: SystemState, base_url=DEFAULT_REPO_URL):
@@ -189,9 +204,16 @@ def _cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
     os.remove(filename)
 
 
+def _cleanup_apt_cached_lists():
+    shutil.rmtree('/var/lib/apt/lists/')
+
+
 def _restore_system_config(original_state):
     logger.info('Restoring original system state')
     generate_system_config(original_state)
+
+    logger.info('Cleaning apt cache')
+    _cleanup_apt_cached_lists()
 
 
 def generate_system_config(state):
@@ -261,10 +283,10 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
     logger.info('Updating system')
     run_system_update(assume_yes)
 
-    logger.info('Cleaning up old packages')
-    run_apt('autoremove', assume_yes=assume_yes)
-
     atexit.unregister(_restore_system_config)
+
+    logger.info('Cleaning up old packages')
+    run_apt('autoremove', assume_yes=True)
 
     logger.info('Restarting wb-rules to show actual release info in MQTT')
     try:

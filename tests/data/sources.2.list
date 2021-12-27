@@ -1,0 +1,3 @@
+debs wrong line
+deb http://deb.wirenboard.com/wb6/stretch wb-2108 main
+deb http://deb.wirenboard.com/wb6/stretch testing main
