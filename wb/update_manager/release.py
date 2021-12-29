@@ -111,20 +111,24 @@ def read_wb_release_file(filename):
 
 
 def read_apt_sources_list_suite(filename) -> str:
-    with open(filename) as f:
-        for line in f:
-            line = line.partition('#')[0].rstrip()
-            if line.startswith('deb http'):
-                return line.split(' ', maxsplit=4)[2]
+    if os.path.exists(filename):
+        with open(filename) as f:
+            for line in f:
+                line = line.partition('#')[0].rstrip()
+                if line.startswith('deb http'):
+                    return line.split(' ', maxsplit=4)[2]
 
     raise NoSuiteInfoError()
 
 
 def get_current_state(filename=WB_RELEASE_FILENAME, sources_filename=WB_SOURCES_LIST_FILENAME) -> SystemState:
     release_info = read_wb_release_file(filename)
-    sources_list_suite = read_apt_sources_list_suite(sources_filename)
 
-    consistent = (release_info.suite == sources_list_suite)
+    try:
+        sources_list_suite = read_apt_sources_list_suite(sources_filename)
+        consistent = (release_info.suite == sources_list_suite)
+    except NoSuiteInfoError:
+        consistent = False
 
     return SystemState(release_info.suite, release_info.target, release_info.repo_prefix, consistent)
 

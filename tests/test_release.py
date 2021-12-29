@@ -271,6 +271,11 @@ def test_apt_sources_list_suite_reader(filename, expected):
     assert release.read_apt_sources_list_suite(os.path.join(DATA_PATH, filename)) == expected
 
 
+def test_apt_sources_list_suite_failure():
+    with pytest.raises(release.NoSuiteInfoError):
+        release.read_apt_sources_list_suite("/non/existent/path")
+
+
 class TestRoute:
     def patch(self, mocker, system_state=release.SystemState('testing', 'wb6/stretch', '', True), release_exists=True):
         # possible actions
