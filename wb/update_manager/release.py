@@ -208,8 +208,9 @@ def _cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
     os.remove(filename)
 
 
-def _cleanup_apt_cached_lists():
-    shutil.rmtree('/var/lib/apt/lists/')
+def _cleanup_apt_cached_lists(cache_dir='/var/lib/apt/lists'):
+    if os.path.exists(cache_dir):
+        shutil.rmtree(cache_dir)
 
 
 def _restore_system_config(original_state):
