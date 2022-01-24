@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5) stable; urgency=medium
+
+  * log to journald instead of file by default
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Mon, 24 Jan 2022 13:50:03 +0300
+
 wb-update-manager (1.2.4) stable; urgency=medium
 
   * fix first run without sources.list (fails in build-image)
