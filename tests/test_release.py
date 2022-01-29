@@ -5,8 +5,6 @@ import tempfile
 import argparse
 import urllib.request
 import subprocess
-from datetime import datetime
-from unittest.mock import MagicMock
 from urllib.error import HTTPError
 from types import SimpleNamespace
 from wb.update_manager import release
@@ -299,6 +297,7 @@ class TestRoute:
             'prefix': None,
             'second_stage': False,
             'log_filename': None,
+            'no_journald_log': False,
         }
         new_kwargs.update(**kwargs)
         return argparse.Namespace(**new_kwargs)
@@ -370,12 +369,7 @@ class TestRoute:
 
 class TestArgParser:
     def patch(self, mocker, return_value=release.RETCODE_OK):
-        fake_now = datetime(2021, 10, 18, 12, 00, 42)
-        datetime_mock = MagicMock(wraps=datetime)
-        datetime_mock.now.return_value = fake_now
-        mocker.patch.object(release, 'datetime', datetime_mock)
-
-        self.log_filename = release.get_default_log_filename(fake_now)
+        self.log_filename = None
 
         args = {
             'regenerate': False,
@@ -387,6 +381,7 @@ class TestArgParser:
             'reset_url': False,
             'prefix': None,
             'second_stage': False,
+            'no_journald_log': False,
         }
         self.default_args = argparse.Namespace(**args)
         mocker.patch.object(release, 'route', return_value=return_value)

@@ -12,10 +12,10 @@ import atexit
 import textwrap
 import errno
 import shutil
-from datetime import datetime  # this import will be monkeypatched in tests, keep it as is
 from collections import namedtuple
 import urllib.request
 from urllib.error import HTTPError
+from systemd import journal
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
 SystemState = namedtuple('SystemState', 'suite target repo_prefix consistent')
@@ -37,14 +37,7 @@ RETCODE_EINVAL = errno.EINVAL
 logger = logging.getLogger('wb-release')
 
 
-def get_default_log_filename(dt: datetime = datetime.now()):
-    # timespec option is not supported in python 3.5,
-    # so removing microseconds tail by zeroing it explicitly
-    dt_no_us = dt.replace(microsecond=0)
-    return DEFAULT_LOG_FILENAME.format(datetime=dt_no_us.isoformat())
-
-
-def configure_logger(log_filename):
+def configure_logger(log_filename=None, no_journald_log=False):
     logger.setLevel(logging.DEBUG)
 
     # apt-get reconfigures pty somehow, so CR symbol becomes necessary in stdout,
@@ -67,6 +60,13 @@ def configure_logger(log_filename):
         logger.addHandler(file_handler)
 
         logger.info('Update log is written to {}'.format(log_filename))
+
+    if not no_journald_log:
+        journald_handler = journal.JournalHandler(SYSLOG_IDENTIFIER='wb-release')
+        journald_handler.setLevel(logging.INFO)
+        logger.addHandler(journald_handler)
+
+        logger.info('journald logging enabled')
 
 
 class NoSuiteInfoError(Exception):
@@ -416,7 +416,7 @@ def route(args, argv):
         print_banner()
         return RETCODE_OK
 
-    configure_logger(args.log_filename)
+    configure_logger(args.log_filename, args.no_journald_log)
 
     current_state = get_current_state()
     second_stage = args.second_stage
@@ -464,8 +464,8 @@ def main(argv=sys.argv):
     parser.add_argument('-y', '--yes', action='store_true', help='auto "yes" to all questions')
     parser.add_argument('-p', '--reset-packages', action='store_true',
                         help='reset all packages to release versions and exit')
-    parser.add_argument('-l', '--log-filename', type=str, default=get_default_log_filename(datetime.now()),
-                        help='path to output log file')
+    parser.add_argument('-l', '--log-filename', type=str, default=None, help='path to output log file')
+    parser.add_argument('--no-journald-log', action='store_true', help='disable journald logging')
 
     url_group = parser.add_mutually_exclusive_group()
     url_group.add_argument('--reset-url', action='store_true', help='reset repository URL to default Wirenboard one')
