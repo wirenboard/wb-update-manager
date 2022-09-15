@@ -411,6 +411,24 @@ def run_system_update(assume_yes=False):
     run_apt('dist-upgrade', assume_yes=True)
 
 
+def update_debian_release():
+    logger.info('Start update_debian_release')
+    if os.path.exists('/etc/apt/sources.list.d/stretch-backports.list'):
+        os.remove('rm -f /etc/apt/sources.list.d/stretch-backports.list')
+    # open text file
+    debian_source_list = open('/etc/apt/sources.list.d/debian-upstream.list', "w")
+    str = """
+    deb http://deb.debian.org/debian bullseye main
+    deb http://deb.debian.org/debian bullseye-updates main
+    deb http://deb.debian.org/debian bullseye-backports main
+    deb http://security.debian.org/debian-security bullseye-security main
+    """
+    debian_source_list.write(str)
+    debian_source_list.close()
+
+    pass
+
+
 def route(args, argv):
     if len(argv[1:]) == 0 or args.version:
         print_banner()
@@ -420,6 +438,9 @@ def route(args, argv):
 
     current_state = get_current_state()
     second_stage = args.second_stage
+
+    if args.update_debian_release:
+        return update_debian_release()
 
     if args.regenerate:
         return generate_system_config(current_state)
@@ -473,6 +494,8 @@ def main(argv=sys.argv):
 
     parser.add_argument('--no-preliminary-update', dest='second_stage', action='store_true',
                         help='skip upgrade before switching (not recommended)')
+
+    parser.add_argument('--update-debian-release', action='store_true', help='upgrade distributive to bullseye')
 
     args = parser.parse_args(argv[1:])
 
