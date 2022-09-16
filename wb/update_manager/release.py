@@ -12,6 +12,7 @@ import atexit
 import textwrap
 import errno
 import shutil
+import re
 from collections import namedtuple
 import urllib.request
 from urllib.error import HTTPError
@@ -19,6 +20,8 @@ from systemd import journal
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
 SystemState = namedtuple('SystemState', 'suite target repo_prefix consistent')
+
+DebianReleases = ['stretch', 'bullseye']
 
 WB_ORIGIN = 'wirenboard'
 WB_RELEASE_FILENAME = '/usr/lib/wb-release'
@@ -133,7 +136,8 @@ def get_current_state(filename=WB_RELEASE_FILENAME, sources_filename=WB_SOURCES_
     return SystemState(release_info.suite, release_info.target, release_info.repo_prefix, consistent)
 
 
-def get_target_state(old_state: SystemState, reset_url=False, prefix=None, target_release=None) -> SystemState:
+def get_target_state(old_state: SystemState, reset_url=False, prefix=None, target_release=None,
+                     target_target=None) -> SystemState:
     if reset_url and prefix:
         raise ImpossibleUpdateError('both --prefix and --reset-url are set')
 
@@ -149,9 +153,14 @@ def get_target_state(old_state: SystemState, reset_url=False, prefix=None, targe
     else:
         new_suite = old_state.suite
 
+    if target_target:
+        target = target_target
+    else:
+        target = old_state.target
+
     new_prefix = new_prefix.strip(' /')
 
-    return SystemState(new_suite, old_state.target, new_prefix, consistent=True)
+    return SystemState(new_suite, target, new_prefix, consistent=True)
 
 
 def make_full_repo_url(state: SystemState, base_url=DEFAULT_REPO_URL):
@@ -259,7 +268,7 @@ def update_first_stage(assume_yes=False, log_filename=None):
 def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=False):
     if state != old_state:
         user_confirm(textwrap.dedent("""
-                     Now the release will be switched to {}, prefix "{}".
+                     Now the release will be switched to {}, prefix "{}", target {}.
 
                      During update, the sources and preferences files will be changed,
                      then apt-get dist-upgrade action will start. Some packages may be downgraded.
@@ -267,10 +276,14 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
                      This process is potentially dangerous and may break your software.
 
                      STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
-                         state.suite, state.repo_prefix).strip(),
+            state.suite, state.repo_prefix, state.target).strip(),
                      assume_yes)
 
         logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
+
+        if state.target != old_state.target:
+            prepare_new_debian_release(state.target)
+
         generate_system_config(state)
         atexit.register(_restore_system_config, old_state)
     else:
@@ -411,22 +424,32 @@ def run_system_update(assume_yes=False):
     run_apt('dist-upgrade', assume_yes=True)
 
 
-def update_debian_release():
-    logger.info('Start update_debian_release')
+def prepare_debian_upstream_sources_lists():
     if os.path.exists('/etc/apt/sources.list.d/stretch-backports.list'):
-        os.remove('rm -f /etc/apt/sources.list.d/stretch-backports.list')
-    # open text file
-    debian_source_list = open('/etc/apt/sources.list.d/debian-upstream.list', "w")
-    str = """
-    deb http://deb.debian.org/debian bullseye main
-    deb http://deb.debian.org/debian bullseye-updates main
-    deb http://deb.debian.org/debian bullseye-backports main
-    deb http://security.debian.org/debian-security bullseye-security main
-    """
-    debian_source_list.write(str)
-    debian_source_list.close()
+        os.remove('/etc/apt/sources.list.d/stretch-backports.list')
 
-    pass
+    with open('/etc/apt/sources.list.d/debian-upstream.list', "w") as f:
+        f.write(textwrap.dedent("""
+                    deb http://deb.debian.org/debian bullseye main
+                    deb http://deb.debian.org/debian bullseye-updates main
+                    deb http://deb.debian.org/debian bullseye-backports main
+                    deb http://security.debian.org/debian-security bullseye-security main""").strip())
+
+
+def prepare_new_debian_release(target):
+    distr = re.search('/(.+)', target).group(1)
+
+    if distr == 'bullseye':
+        prepare_debian_upstream_sources_lists()
+        run_apt('update', assume_yes=True)
+        run_apt('install', 'python-is-python2', assume_yes=True)
+
+def prepare_target_for_new_debian_release(target):
+    print('Target {}'.format(target))
+    distr = re.search('/(.+)', target).group(1)
+    next_distr_index = DebianReleases.index(distr) + 1
+    if next_distr_index < len(DebianReleases):
+        return re.sub('/.+', '/' + DebianReleases[next_distr_index], target)
 
 
 def route(args, argv):
@@ -438,9 +461,6 @@ def route(args, argv):
 
     current_state = get_current_state()
     second_stage = args.second_stage
-
-    if args.update_debian_release:
-        return update_debian_release()
 
     if args.regenerate:
         return generate_system_config(current_state)
@@ -454,10 +474,14 @@ def route(args, argv):
         target_state = current_state
         second_stage = True
     else:
+        new_target = None
+        if args.update_debian_release:
+            new_target = prepare_target_for_new_debian_release(current_state.target)
         target_state = get_target_state(current_state,
                                         reset_url=args.reset_url,
                                         prefix=args.prefix,
-                                        target_release=args.target_release)
+                                        target_release=args.target_release,
+                                        target_target=new_target)
 
         if target_state == current_state:
             logger.info('Target and current releases are the same, nothing to do')
