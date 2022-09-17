@@ -474,6 +474,8 @@ def main(argv=sys.argv):
     parser.add_argument('--no-preliminary-update', dest='second_stage', action='store_true',
                         help='skip upgrade before switching (not recommended)')
 
+    parser.add_argument('--update-debian-release', action='store_true', help='upgrade distributive to bullseye')
+
     args = parser.parse_args(argv[1:])
 
     return route(args, argv)
