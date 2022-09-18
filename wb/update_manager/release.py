@@ -34,6 +34,10 @@ RETCODE_FAULT = 2
 RETCODE_NO_TARGET = 3
 RETCODE_EINVAL = errno.EINVAL
 
+APT_SOURCE_LIST_PATH = '/etc/apt/sources.list.d/'
+APT_SOURCE_LIST_OLD_PATH = '/etc/apt/sources.list.d.old/'
+APT_SOURCE_LIST_FILES = ['stretch-backports.list', 'debian-upstream.list']
+
 logger = logging.getLogger('wb-release')
 
 
@@ -411,11 +415,16 @@ def run_system_update(assume_yes=False):
     run_apt('dist-upgrade', assume_yes=True)
 
 
-def prepare_debian_upstream_sources_lists():
-    if os.path.exists('/etc/apt/sources.list.d/stretch-backports.list'):
-        os.remove('/etc/apt/sources.list.d/stretch-backports.list')
+def prepare_debian_sources_lists():
+    if not os.path.exists(APT_SOURCE_LIST_OLD_PATH):
+        os.mkdir(APT_SOURCE_LIST_OLD_PATH)
 
-    with open('/etc/apt/sources.list.d/debian-upstream.list', "w") as f:
+    for file in APT_SOURCE_LIST_FILES:
+        if os.path.exists(APT_SOURCE_LIST_PATH + file):
+            os.rename(APT_SOURCE_LIST_PATH + file,
+                      APT_SOURCE_LIST_OLD_PATH + file)
+
+    with open(APT_SOURCE_LIST_PATH + '/debian-upstream.list', "w") as f:
         f.write(textwrap.dedent("""
                     deb http://deb.debian.org/debian bullseye main
                     deb http://deb.debian.org/debian bullseye-updates main
@@ -423,7 +432,20 @@ def prepare_debian_upstream_sources_lists():
                     deb http://security.debian.org/debian-security bullseye-security main""").strip())
 
 
-def upgrade_new_debian_release(state: SystemState):
+def clean_debian_sources_lists():
+    if os.path.exists(APT_SOURCE_LIST_OLD_PATH):
+        shutil.rmtree(APT_SOURCE_LIST_OLD_PATH)
+
+
+def restore_debian_sources_lists():
+    for file in APT_SOURCE_LIST_FILES:
+        if os.path.exists(APT_SOURCE_LIST_OLD_PATH + file):
+            os.rename(APT_SOURCE_LIST_OLD_PATH + file,
+                      APT_SOURCE_LIST_PATH + file)
+    clean_debian_sources_lists()
+
+
+def upgrade_new_debian_release(state: SystemState, log_filename):
     print('============ Upgrade debian release ============')
 
     m = re.search('(.+)/(.+)', state.target)
@@ -431,19 +453,48 @@ def upgrade_new_debian_release(state: SystemState):
     distr = m.group(2)
 
     if distr == 'stretch':
-        new_state = state._replace(target=(controller_version + '/bullseye'), suite='wb-2207')
-        if not release_exists(new_state):
-            logger.error('Target state does not exist: {}'.format(new_state))
-            return RETCODE_NO_TARGET
+        try:
+            run_system_update(assume_yes=True)
+            new_state = state._replace(target=(controller_version + '/bullseye'), suite='wb-2207')
+            if not release_exists(new_state):
+                logger.error('Target state does not exist: {}'.format(new_state))
+                return RETCODE_NO_TARGET
 
-        run_system_update(assume_yes=True)
+            prepare_debian_sources_lists()
+            generate_system_config(new_state)
+            run_apt('update', assume_yes=True)
+            run_apt('install', 'python-is-python2', assume_yes=True)
+            run_apt('dist-upgrade', assume_yes=True)
 
-        prepare_debian_upstream_sources_lists()
-        generate_system_config(new_state)
-        run_apt('update', assume_yes=True)
-        run_apt('install', 'python-is-python2', assume_yes=True)
-        run_apt('dist-upgrade', assume_yes=True)
+        except UserAbortException:
+            logger.info('Aborted by user')
+            restore_debian_sources_lists()
+            _restore_system_config(state)
+            return RETCODE_USER_ABORT
+
+        except KeyboardInterrupt:
+            logger.info('Interrupted by user')
+            restore_debian_sources_lists()
+            _restore_system_config(state)
+            return RETCODE_USER_ABORT
+
+        except subprocess.CalledProcessError as e:
+            logger.error('\nThe subprocess {} has failed with status {}'.format(e.cmd, e.returncode))
+            restore_debian_sources_lists()
+            _restore_system_config(state)
+            return e.returncode
+        except Exception:
+            logger.exception('Something went wrong, check output and try again')
+            restore_debian_sources_lists()
+            _restore_system_config(state)
+            return RETCODE_FAULT
+        finally:
+            if log_filename:
+                logger.info('Update log is saved in {}'.format(log_filename))
+
+        clean_debian_sources_lists()
         return RETCODE_OK
+
 
 def route(args, argv):
     if len(argv[1:]) == 0 or args.version:
@@ -456,7 +507,7 @@ def route(args, argv):
     second_stage = args.second_stage
 
     if args.update_debian_release:
-        return upgrade_new_debian_release(current_state)
+        return upgrade_new_debian_release(current_state, log_filename=args.log_filename)
 
     if args.regenerate:
         return generate_system_config(current_state)
