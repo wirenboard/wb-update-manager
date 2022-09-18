@@ -445,8 +445,8 @@ def restore_debian_sources_lists():
     clean_debian_sources_lists()
 
 
-def upgrade_new_debian_release(state: SystemState, log_filename):
-    print('============ Upgrade debian release ============')
+def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False):
+    print('============ Upgrade debian release to bullseye ============')
 
     m = re.search('(.+)/(.+)', state.target)
     controller_version = m.group(1)
@@ -454,17 +454,52 @@ def upgrade_new_debian_release(state: SystemState, log_filename):
 
     if distr == 'stretch':
         try:
-            run_system_update(assume_yes=True)
+            user_confirm(textwrap.dedent("""
+                             Now the system will be updated using Apt without changing the release.
+
+                             It is required to get latest state possible
+                             to make release change process more controllable.
+
+                             Make sure you have all your data backed up.""").strip(), assume_yes)
+
+            logger.info('Performing upgrade on the current release')
+            run_system_update(assume_yes)
             new_state = state._replace(target=(controller_version + '/bullseye'), suite='wb-2207')
             if not release_exists(new_state):
                 logger.error('Target state does not exist: {}'.format(new_state))
                 return RETCODE_NO_TARGET
 
+            user_confirm(textwrap.dedent("""
+                                 Now the release will be switched to {}, prefix "{}", target "{}".
+
+                                 During update, the sources and preferences files will be changed,
+                                 then apt-get dist-upgrade action will start. Some packages may be downgraded.
+
+                                 This process is potentially dangerous and may break your software.
+
+                                 STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
+                new_state.suite, new_state.repo_prefix, new_state.target).strip(),
+                         assume_yes)
+
+            logger.info('Setting target release to {}, prefix "{}", target "{}"'.format(new_state.suite,
+                                                                                        new_state.repo_prefix,
+                                                                                        new_state.target))
             prepare_debian_sources_lists()
             generate_system_config(new_state)
-            run_apt('update', assume_yes=True)
+
+            run_apt('update', assume_yes=assume_yes)
             run_apt('install', 'python-is-python2', assume_yes=True)
+
+            if not assume_yes:
+                logger.info('Simulating upgrade')
+                run_apt('dist-upgrade', '-s', '-V', assume_yes=False)
+                user_confirm(assume_yes=assume_yes)
+
+            logger.info('Performing actual upgrade')
             run_apt('dist-upgrade', assume_yes=True)
+
+            logger.info('Cleaning up old packages')
+            run_apt('autoremove', assume_yes=True)
 
         except UserAbortException:
             logger.info('Aborted by user')
@@ -483,11 +518,13 @@ def upgrade_new_debian_release(state: SystemState, log_filename):
             restore_debian_sources_lists()
             _restore_system_config(state)
             return e.returncode
+
         except Exception:
             logger.exception('Something went wrong, check output and try again')
             restore_debian_sources_lists()
             _restore_system_config(state)
             return RETCODE_FAULT
+
         finally:
             if log_filename:
                 logger.info('Update log is saved in {}'.format(log_filename))
@@ -507,7 +544,7 @@ def route(args, argv):
     second_stage = args.second_stage
 
     if args.update_debian_release:
-        return upgrade_new_debian_release(current_state, log_filename=args.log_filename)
+        return upgrade_new_debian_release(current_state, log_filename=args.log_filename, assume_yes=args.yes)
 
     if args.regenerate:
         return generate_system_config(current_state)
