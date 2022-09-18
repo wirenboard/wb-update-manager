@@ -298,6 +298,7 @@ class TestRoute:
             'second_stage': False,
             'log_filename': None,
             'no_journald_log': False,
+            'update_debian_release': False
         }
         new_kwargs.update(**kwargs)
         return argparse.Namespace(**new_kwargs)

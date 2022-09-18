@@ -2,7 +2,7 @@
 This package contains the library to manage with Wirenboard release data on board
 and provides the main for the wb-release tool which switches release branches.
 """
-
+import re
 import subprocess
 import sys
 import os
@@ -267,7 +267,7 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
                      This process is potentially dangerous and may break your software.
 
                      STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
-                         state.suite, state.repo_prefix).strip(),
+            state.suite, state.repo_prefix).strip(),
                      assume_yes)
 
         logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
@@ -411,6 +411,40 @@ def run_system_update(assume_yes=False):
     run_apt('dist-upgrade', assume_yes=True)
 
 
+def prepare_debian_upstream_sources_lists():
+    if os.path.exists('/etc/apt/sources.list.d/stretch-backports.list'):
+        os.remove('/etc/apt/sources.list.d/stretch-backports.list')
+
+    with open('/etc/apt/sources.list.d/debian-upstream.list', "w") as f:
+        f.write(textwrap.dedent("""
+                    deb http://deb.debian.org/debian bullseye main
+                    deb http://deb.debian.org/debian bullseye-updates main
+                    deb http://deb.debian.org/debian bullseye-backports main
+                    deb http://security.debian.org/debian-security bullseye-security main""").strip())
+
+
+def upgrade_new_debian_release(state: SystemState):
+    print('============ Upgrade debian release ============')
+
+    m = re.search('(.+)/(.+)', state.target)
+    controller_version = m.group(1)
+    distr = m.group(2)
+
+    if distr == 'stretch':
+        new_state = state._replace(target=(controller_version + '/bullseye'), suite='wb-2207')
+        if not release_exists(new_state):
+            logger.error('Target state does not exist: {}'.format(new_state))
+            return RETCODE_NO_TARGET
+
+        run_system_update(assume_yes=True)
+
+        prepare_debian_upstream_sources_lists()
+        generate_system_config(new_state)
+        run_apt('update', assume_yes=True)
+        run_apt('install', 'python-is-python2', assume_yes=True)
+        run_apt('dist-upgrade', assume_yes=True)
+        return RETCODE_OK
+
 def route(args, argv):
     if len(argv[1:]) == 0 or args.version:
         print_banner()
@@ -420,6 +454,9 @@ def route(args, argv):
 
     current_state = get_current_state()
     second_stage = args.second_stage
+
+    if args.update_debian_release:
+        return upgrade_new_debian_release(current_state)
 
     if args.regenerate:
         return generate_system_config(current_state)
