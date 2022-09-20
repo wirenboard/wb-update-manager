@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade2) stable; urgency=medium
+
+  * fix debian release update under some conditions
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Thu, 06 Oct 2022 00:03:07 +0600
+
 wb-update-manager (1.2.5-upgrade1) stable; urgency=medium
 
   * Added option to switch to a new Debian distribution

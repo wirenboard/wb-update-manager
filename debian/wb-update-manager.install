@@ -1,1 +1,2 @@
 bin/wb-release /usr/bin
+bin/99-wb-debian-release-updated /usr/share/wb-update-manager
