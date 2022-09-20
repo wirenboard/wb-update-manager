@@ -366,6 +366,7 @@ class TestRoute:
             "second_stage": False,
             "log_filename": None,
             "no_journald_log": False,
+            "update_debian_release": False
         }
         new_kwargs.update(**kwargs)
         return argparse.Namespace(**new_kwargs)
@@ -465,6 +466,7 @@ class TestArgParser:
             "prefix": None,
             "second_stage": False,
             "no_journald_log": False,
+            "update_debian_release": False
         }
         self.default_args = argparse.Namespace(**args)  # pylint: disable=attribute-defined-outside-init
         mocker.patch.object(release, "route", return_value=return_value)
