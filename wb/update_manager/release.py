@@ -448,89 +448,86 @@ def restore_debian_sources_lists():
 def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False):
     print('============ Upgrade debian release to bullseye ============')
 
-    m = re.search('(.+)/(.+)', state.target)
+    m = re.search('(.+)/.+', state.target)
     controller_version = m.group(1)
-    distr = m.group(2)
 
-    if distr == 'stretch':
-        try:
-            user_confirm(textwrap.dedent("""
-                             Now the system will be updated using Apt without changing the release.
+    try:
+        user_confirm(textwrap.dedent("""
+                         Now the system will be updated using Apt without changing the release.
 
-                             It is required to get latest state possible
-                             to make release change process more controllable.
+                         It is required to get latest state possible
+                         to make release change process more controllable.
 
-                             Make sure you have all your data backed up.""").strip(), assume_yes)
+                         Make sure you have all your data backed up.""").strip(), assume_yes)
 
-            logger.info('Performing upgrade on the current release')
-            run_system_update(assume_yes)
-            new_state = state._replace(target=(controller_version + '/bullseye'), suite='wb-2207')
-            if not release_exists(new_state):
-                logger.error('Target state does not exist: {}'.format(new_state))
-                return RETCODE_NO_TARGET
+        logger.info('Performing upgrade on the current release')
+        run_system_update(assume_yes)
+        new_state = state._replace(target=(controller_version + '/bullseye'))
+        if not release_exists(new_state):
+            logger.error('Target state does not exist: {}'.format(new_state))
+            return RETCODE_NO_TARGET
 
-            user_confirm(textwrap.dedent("""
-                                 Now the release will be switched to {}, prefix "{}", target "{}".
+        user_confirm(textwrap.dedent("""
+                             Now the release will be switched to {}, prefix "{}", target "{}".
 
-                                 During update, the sources and preferences files will be changed,
-                                 then apt-get dist-upgrade action will start. Some packages may be downgraded.
+                             During update, the sources and preferences files will be changed,
+                             then apt-get dist-upgrade action will start. Some packages may be downgraded.
 
-                                 This process is potentially dangerous and may break your software.
+                             This process is potentially dangerous and may break your software.
 
-                                 STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
-                new_state.suite, new_state.repo_prefix, new_state.target).strip(),
-                         assume_yes)
+                             STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
+            new_state.suite, new_state.repo_prefix, new_state.target).strip(),
+                     assume_yes)
 
-            logger.info('Setting target release to {}, prefix "{}", target "{}"'.format(new_state.suite,
-                                                                                        new_state.repo_prefix,
-                                                                                        new_state.target))
-            prepare_debian_sources_lists()
-            generate_system_config(new_state)
+        logger.info('Setting target release to {}, prefix "{}", target "{}"'.format(new_state.suite,
+                                                                                    new_state.repo_prefix,
+                                                                                    new_state.target))
+        prepare_debian_sources_lists()
+        atexit.register(restore_debian_sources_lists)
+        generate_system_config(new_state)
+        atexit.register(_restore_system_config, state)
 
-            run_apt('update', assume_yes=assume_yes)
-            run_apt('install', 'python-is-python2', assume_yes=True)
+        run_apt('update', assume_yes=assume_yes)
+        run_apt('install', 'python-is-python2', assume_yes=True)
 
-            if not assume_yes:
-                logger.info('Simulating upgrade')
-                run_apt('dist-upgrade', '-s', '-V', assume_yes=False)
-                user_confirm(assume_yes=assume_yes)
+        if not assume_yes:
+            logger.info('Simulating upgrade')
+            run_apt('dist-upgrade', '-s', '-V', assume_yes=False)
+            user_confirm(assume_yes=assume_yes)
 
-            logger.info('Performing actual upgrade')
-            run_apt('dist-upgrade', assume_yes=True)
+        logger.info('Performing actual upgrade')
+        run_apt('dist-upgrade', assume_yes=True)
 
-            logger.info('Cleaning up old packages')
-            run_apt('autoremove', assume_yes=True)
-
-        except UserAbortException:
-            logger.info('Aborted by user')
-            restore_debian_sources_lists()
-            _restore_system_config(state)
-            return RETCODE_USER_ABORT
-
-        except KeyboardInterrupt:
-            logger.info('Interrupted by user')
-            restore_debian_sources_lists()
-            _restore_system_config(state)
-            return RETCODE_USER_ABORT
-
-        except subprocess.CalledProcessError as e:
-            logger.error('\nThe subprocess {} has failed with status {}'.format(e.cmd, e.returncode))
-            restore_debian_sources_lists()
-            _restore_system_config(state)
-            return e.returncode
-
-        except Exception:
-            logger.exception('Something went wrong, check output and try again')
-            restore_debian_sources_lists()
-            _restore_system_config(state)
-            return RETCODE_FAULT
-
-        finally:
-            if log_filename:
-                logger.info('Update log is saved in {}'.format(log_filename))
-
+        atexit.unregister(restore_debian_sources_lists)
+        atexit.unregister(_restore_system_config)
         clean_debian_sources_lists()
-        return RETCODE_OK
+
+        run_cmd('apt-mark', 'auto', 'python-is-python2')
+
+        logger.info('Cleaning up old packages')
+        run_apt('autoremove', assume_yes=True)
+
+    except UserAbortException:
+        logger.info('Aborted by user')
+        return RETCODE_USER_ABORT
+
+    except KeyboardInterrupt:
+        logger.info('Interrupted by user')
+        return RETCODE_USER_ABORT
+
+    except subprocess.CalledProcessError as e:
+        logger.error('\nThe subprocess {} has failed with status {}'.format(e.cmd, e.returncode))
+        return e.returncode
+
+    except Exception:
+        logger.exception('Something went wrong, check output and try again')
+        return RETCODE_FAULT
+
+    finally:
+        if log_filename:
+            logger.info('Update log is saved in {}'.format(log_filename))
+
+    return RETCODE_OK
 
 
 def route(args, argv):
@@ -599,7 +596,7 @@ def main(argv=sys.argv):
     parser.add_argument('--no-preliminary-update', dest='second_stage', action='store_true',
                         help='skip upgrade before switching (not recommended)')
 
-    parser.add_argument('--update-debian-release', action='store_true', help='upgrade distributive to bullseye')
+    parser.add_argument('--update-debian-release', action='store_true', help='upgrade Debian release to bullseye')
 
     args = parser.parse_args(argv[1:])
 
