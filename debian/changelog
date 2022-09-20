@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade1) stable; urgency=medium
+
+  * Added option to switch to a new Debian distribution
+
+ -- Roman Kochkin <roman.kochkin@wirenboard.ru>  Sat, 17 Sep 2022 14:09:19 +0400
+
 wb-update-manager (1.2.5) stable; urgency=medium
 
   * log to journald instead of file by default
