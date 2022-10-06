@@ -439,11 +439,8 @@ def prepare_debian_sources_lists():
 
 
 def clean_debian_sources_lists():
-    try:
-        if os.path.exists(APT_SOURCE_LIST_OLD_PATH):
-            shutil.rmtree(APT_SOURCE_LIST_OLD_PATH)
-    except OSError:
-        logger.info("Ignore OSError on rmtree")
+    if os.path.exists(APT_SOURCE_LIST_OLD_PATH):
+        shutil.rmtree(os.path.realpath(APT_SOURCE_LIST_OLD_PATH))
 
 
 def restore_debian_sources_lists():
