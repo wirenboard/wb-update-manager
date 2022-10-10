@@ -464,8 +464,8 @@ def _restore_watchdog():
 def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False):
     # these services will be masked (preventing restart during upgrade)
     # and then restarted manually
-    SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service')
-    MASKED_SERVICES = ('nginx.service', 'mosquitto.service', 'hostapd.service')
+    SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service', 'wb-mqtt-mbgate.service')
+    MASKED_SERVICES = ('nginx.service', 'mosquitto.service', 'hostapd.service', 'wb-mqtt-mbgate.service')
 
     print('============ Upgrade debian release to bullseye ============')
 
