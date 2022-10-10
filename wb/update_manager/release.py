@@ -402,7 +402,8 @@ def run_cmd(*args, env=None, log_suffix=None):
 
     with proc.stdout:
         for line in iter(proc.stdout.readline, b''):
-            proc_logger.info(line.decode(encoding='utf-8').rstrip().rsplit('\r', 1)[-1])
+            # remove all non-unicode characters from line for not to confuse ASCII terminal
+            proc_logger.info(line.decode('ascii', 'ignore').rstrip().rsplit('\r', 1)[-1])
 
     retcode = proc.wait()
     if retcode != 0:
