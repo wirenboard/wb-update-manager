@@ -463,7 +463,7 @@ def _restore_watchdog():
 
 def _free_space_mb(path):
     stat = os.statvfs(path)
-    return stat.f_ffree / stat.f_bsize / 1024 / 1024
+    return stat.f_bavail * stat.f_bsize / 1024 / 1024
 
 
 def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False):
