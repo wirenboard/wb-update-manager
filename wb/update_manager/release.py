@@ -461,11 +461,27 @@ def _restore_watchdog():
     run_cmd('systemctl', 'start', 'watchdog.service')
 
 
+def _free_space_mb(path):
+    stat = os.statvfs(path)
+    return stat.f_ffree / stat.f_bsize / 1024 / 1024
+
+
 def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False):
     # these services will be masked (preventing restart during upgrade)
     # and then restarted manually
     SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service', 'wb-mqtt-mbgate.service')
     MASKED_SERVICES = ('nginx.service', 'mosquitto.service', 'hostapd.service', 'wb-mqtt-mbgate.service')
+
+    MIN_CACHE_FREE_SPACE_MB = 300
+    MIN_SYSTEM_FREE_SPACE_MB = 300
+
+    if _free_space_mb('/var/cache/apt/archives') < MIN_CACHE_FREE_SPACE_MB:
+        logger.error('Need at least %d MB of free space for apt cache (/mnt/data)', MIN_CACHE_FREE_SPACE_MB)
+        return 1
+
+    if _free_space_mb('/usr/bin') < MIN_SYSTEM_FREE_SPACE_MB:
+        logger.error('Need at least %d MB of free space in root partition', MIN_SYSTEM_FREE_SPACE_MB)
+        return 1
 
     print('============ Upgrade debian release to bullseye ============')
 
