@@ -468,7 +468,7 @@ def _free_space_mb(path):
 
 
 def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False):
-    # these services will be masked (preventing restart during upgrade)
+    # these services will be masked (preventing restart during update)
     # and then restarted manually
     SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service', 'wb-mqtt-mbgate.service')
     MASKED_SERVICES = ('nginx.service', 'mosquitto.service', 'hostapd.service', 'wb-mqtt-mbgate.service')
@@ -484,7 +484,7 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
         logger.error('Need at least %d MB of free space in root partition', MIN_SYSTEM_FREE_SPACE_MB)
         return 1
 
-    print('============ Upgrade debian release to bullseye ============')
+    print('============ Update debian release to bullseye ============')
 
     m = re.search('(.+)/.+', state.target)
     controller_version = m.group(1)
@@ -535,7 +535,7 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
         atexit.unregister(restore_debian_sources_lists)
         restore_debian_sources_lists()
 
-        logger.info('Updating openssh-server first to make Wiren Board available during upgrade')
+        logger.info('Updating openssh-server first to make Wiren Board available during update')
         run_cmd('systemctl', 'mask', 'ssh.service')
         run_apt('install', 'openssh-server', assume_yes=not confirm_steps)
         run_cmd('systemctl', 'unmask', 'ssh.service')
@@ -544,7 +544,7 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
         logger.info('Installing python-is-python2 for correct dependency resolving')
         run_apt('install', 'python-is-python2', assume_yes=not confirm_steps)
 
-        logger.info('Masking services to prevent restart during upgrade')
+        logger.info('Masking services to prevent restart during update')
         for service in MASKED_SERVICES:
             run_cmd('systemctl', 'mask', service)
 
@@ -565,7 +565,7 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
         atexit.unregister(_restore_system_config)
         clean_debian_sources_lists()
 
-        logger.info('Enabling services masked during upgrade')
+        logger.info('Enabling services masked during update')
         for service in MASKED_SERVICES:
             run_cmd('systemctl', 'unmask', service)
 
