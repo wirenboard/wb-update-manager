@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ "x$LANG" == "xru-RU.UTF-8" ]; then
+    echo -e "Доступно обновление до \u001b[1m\u001b[33mDebian Bullseye\u001b[0m!"
+    echo -e "Для обновления выпоните команду \u001b[1m\u001b[33mwb-release --update-debian-release -y\u001b[0m"
+    echo -e "Обновление может длиться до 45 минут\n"
+else
+    echo -e "Update to \u001b[1m\u001b[33mDebian Bullseye\u001b[0m is available!"
+    echo -e "Run \u001b[1m\u001b[33mwb-release --update-debian-release -y\u001b[0m to update"
+    echo -e "The update can take up to 45 minutes\n"
+fi
