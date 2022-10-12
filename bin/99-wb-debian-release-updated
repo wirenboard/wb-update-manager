@@ -1,0 +1,13 @@
+#!/bin/sh
+
+[ ! -e /run/wb-debian-release-updated ] && exit
+
+if [ "x$LANG" == "xru-RU.UTF-8" ]; then
+    echo "Версия Debian обновилась до bullseye!"
+    echo "Пожалуйста, перезагрузите Wiren Board."
+else
+    echo "Debian release is updated to bullseye!"
+    echo "Please reboot your Wiren Board."
+fi
+
+echo
