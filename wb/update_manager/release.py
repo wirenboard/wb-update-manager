@@ -16,6 +16,7 @@ from collections import namedtuple
 import urllib.request
 from urllib.error import HTTPError
 from systemd import journal
+from pathlib import Path
 
 ReleaseInfo = namedtuple('ReleaseInfo', 'release_name suite target repo_prefix')
 SystemState = namedtuple('SystemState', 'suite target repo_prefix consistent')
@@ -37,6 +38,7 @@ RETCODE_EINVAL = errno.EINVAL
 APT_SOURCE_LIST_PATH = '/etc/apt/sources.list.d/'
 APT_SOURCE_LIST_OLD_PATH = '/etc/apt/sources.list.d.old/'
 APT_SOURCE_LIST_FILES = ['stretch-backports.list', 'debian-upstream.list']
+TEMP_DEBIAN_UPSTREAM_LIST = APT_SOURCE_LIST_PATH + 'debian-upstream-bullseye-temp.list'
 
 logger = logging.getLogger('wb-release')
 
@@ -214,7 +216,11 @@ def _cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
 
 def _cleanup_apt_cached_lists(cache_dir='/var/lib/apt/lists'):
     if os.path.exists(cache_dir):
-        shutil.rmtree(cache_dir)
+        for path in Path(cache_dir).resolve().glob('**/*'):
+            if path.is_file():
+                path.unlink()
+            elif path.is_dir():
+                shutil.rmtree(str(path))
 
 
 def _restore_system_config(original_state):
@@ -396,7 +402,8 @@ def run_cmd(*args, env=None, log_suffix=None):
 
     with proc.stdout:
         for line in iter(proc.stdout.readline, b''):
-            proc_logger.info(line.decode().rstrip().rsplit('\r', 1)[-1])
+            # remove all non-unicode characters from line for not to confuse ASCII terminal
+            proc_logger.info(line.decode('ascii', 'ignore').rstrip().rsplit('\r', 1)[-1])
 
     retcode = proc.wait()
     if retcode != 0:
@@ -424,7 +431,7 @@ def prepare_debian_sources_lists():
             os.rename(APT_SOURCE_LIST_PATH + file,
                       APT_SOURCE_LIST_OLD_PATH + file)
 
-    with open(APT_SOURCE_LIST_PATH + '/debian-upstream.list', "w") as f:
+    with open(TEMP_DEBIAN_UPSTREAM_LIST, "w") as f:
         f.write(textwrap.dedent("""
                     deb http://deb.debian.org/debian bullseye main
                     deb http://deb.debian.org/debian bullseye-updates main
@@ -434,7 +441,7 @@ def prepare_debian_sources_lists():
 
 def clean_debian_sources_lists():
     if os.path.exists(APT_SOURCE_LIST_OLD_PATH):
-        shutil.rmtree(APT_SOURCE_LIST_OLD_PATH)
+        shutil.rmtree(os.path.realpath(APT_SOURCE_LIST_OLD_PATH))
 
 
 def restore_debian_sources_lists():
@@ -445,8 +452,39 @@ def restore_debian_sources_lists():
     clean_debian_sources_lists()
 
 
-def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False):
-    print('============ Upgrade debian release to bullseye ============')
+def remove_tmp_debian_upstream():
+    logger.info('Removing temp debian-upstream sources list file')
+    os.remove(TEMP_DEBIAN_UPSTREAM_LIST)
+
+
+def _restore_watchdog():
+    logger.info('Starting watchdog service')
+    run_cmd('systemctl', 'start', 'watchdog.service')
+
+
+def _free_space_mb(path):
+    stat = os.statvfs(path)
+    return stat.f_bavail * stat.f_bsize / 1024 / 1024
+
+
+def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False):
+    # these services will be masked (preventing restart during update)
+    # and then restarted manually
+    SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service', 'wb-mqtt-mbgate.service')
+    MASKED_SERVICES = ('nginx.service', 'mosquitto.service', 'hostapd.service', 'wb-mqtt-mbgate.service')
+
+    MIN_CACHE_FREE_SPACE_MB = 300
+    MIN_SYSTEM_FREE_SPACE_MB = 300
+
+    if _free_space_mb('/var/cache/apt/archives') < MIN_CACHE_FREE_SPACE_MB:
+        logger.error('Need at least %d MB of free space for apt cache (/mnt/data)', MIN_CACHE_FREE_SPACE_MB)
+        return 1
+
+    if _free_space_mb('/usr/bin') < MIN_SYSTEM_FREE_SPACE_MB:
+        logger.error('Need at least %d MB of free space in root partition', MIN_SYSTEM_FREE_SPACE_MB)
+        return 1
+
+    print('============ Update debian release to bullseye ============')
 
     m = re.search('(.+)/.+', state.target)
     controller_version = m.group(1)
@@ -471,9 +509,11 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
                              Now the release will be switched to {}, prefix "{}", target "{}".
 
                              During update, the sources and preferences files will be changed,
-                             then apt-get dist-upgrade action will start. Some packages may be downgraded.
+                             then apt-get dist-upgrade action will start.
 
                              This process is potentially dangerous and may break your software.
+
+                             To control process on each step, use this command with --confirm-steps flag.
 
                              STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!""").format(
             new_state.suite, new_state.repo_prefix, new_state.target).strip(),
@@ -483,29 +523,67 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
                                                                                     new_state.repo_prefix,
                                                                                     new_state.target))
         prepare_debian_sources_lists()
+        atexit.register(remove_tmp_debian_upstream)
         atexit.register(restore_debian_sources_lists)
+
         generate_system_config(new_state)
         atexit.register(_restore_system_config, state)
 
-        run_apt('update', assume_yes=assume_yes)
-        run_apt('install', 'python-is-python2', assume_yes=True)
+        run_apt('update', assume_yes=True)
 
-        if not assume_yes:
+        logger.info('Restoring old debian sources list after update (to properly remove old wb-configs)')
+        atexit.unregister(restore_debian_sources_lists)
+        restore_debian_sources_lists()
+
+        logger.info('Updating openssh-server first to make Wiren Board available during update')
+        run_cmd('systemctl', 'mask', 'ssh.service')
+        run_apt('install', 'openssh-server', assume_yes=not confirm_steps)
+        run_cmd('systemctl', 'unmask', 'ssh.service')
+        run_cmd('systemctl', 'restart', 'ssh.service')
+
+        logger.info('Installing python-is-python2 for correct dependency resolving')
+        run_apt('install', 'python-is-python2', assume_yes=not confirm_steps)
+
+        logger.info('Masking services to prevent restart during update')
+        for service in MASKED_SERVICES:
+            run_cmd('systemctl', 'mask', service)
+
+        if confirm_steps:
             logger.info('Simulating upgrade')
             run_apt('dist-upgrade', '-s', '-V', assume_yes=False)
-            user_confirm(assume_yes=assume_yes)
+            user_confirm(assume_yes=False)
 
         logger.info('Performing actual upgrade')
-        run_apt('dist-upgrade', assume_yes=True)
+        run_apt('dist-upgrade', assume_yes=True)  # this step is confirmed in simulating above
 
-        atexit.unregister(restore_debian_sources_lists)
+        logger.info('Performing actual upgrade - second stage (e2fsprogs update)')
+        run_apt('dist-upgrade', assume_yes=not confirm_steps)
+
+        logger.info('Purging wb-configs-stretch to remove old sources.list')
+        run_apt('purge', 'wb-configs-stretch', assume_yes=not confirm_steps)
+
         atexit.unregister(_restore_system_config)
         clean_debian_sources_lists()
 
+        logger.info('Enabling services masked during update')
+        for service in MASKED_SERVICES:
+            run_cmd('systemctl', 'unmask', service)
+
+        logger.info('Restarting updated services')
+        for service in SERVICES_TO_RESTART:
+            logger.info(' * %s...', service)
+            run_cmd('systemctl', 'restart', service)
+
+        logger.info('Mark python-is-python2 as automatically installed to remove it in future')
         run_cmd('apt-mark', 'auto', 'python-is-python2')
 
         logger.info('Cleaning up old packages')
-        run_apt('autoremove', assume_yes=True)
+        run_apt('autoremove', assume_yes=not confirm_steps)
+
+        shutil.copy('/usr/share/wb-update-manager/99-wb-debian-release-updated', '/etc/update-motd.d/')
+        open('/run/wb-debian-release-updated', 'w').close()
+
+        logger.info('Done! Please reboot system')
 
     except UserAbortException:
         logger.info('Aborted by user')
@@ -541,7 +619,8 @@ def route(args, argv):
     second_stage = args.second_stage
 
     if args.update_debian_release:
-        return upgrade_new_debian_release(current_state, log_filename=args.log_filename, assume_yes=args.yes)
+        return upgrade_new_debian_release(current_state, log_filename=args.log_filename,
+                                          assume_yes=args.yes, confirm_steps=args.confirm_steps)
 
     if args.regenerate:
         return generate_system_config(current_state)
@@ -596,7 +675,8 @@ def main(argv=sys.argv):
     parser.add_argument('--no-preliminary-update', dest='second_stage', action='store_true',
                         help='skip upgrade before switching (not recommended)')
 
-    parser.add_argument('--update-debian-release', action='store_true', help='upgrade Debian release to bullseye')
+    parser.add_argument('--update-debian-release', action='store_true', help='update Debian release to bullseye')
+    parser.add_argument('--confirm-steps', action='store_true', help='ask for confirmation on each step (for Debian release update)')
 
     args = parser.parse_args(argv[1:])
 
