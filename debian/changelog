@@ -1,3 +1,10 @@
+wb-update-manager (1.2.6) stable; urgency=medium
+
+  * format source code with black
+  * fix some minor issues to make pylint happier
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Thu, 13 Oct 2022 12:57:58 +0600
+
 wb-update-manager (1.2.5) stable; urgency=medium
 
   * log to journald instead of file by default
