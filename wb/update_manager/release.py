@@ -59,7 +59,7 @@ def configure_logger(log_filename=None, no_journald_log=False):
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
 
-        logger.info("Update log is written to {}".format(log_filename))
+        logger.info("Update log is written to %s", log_filename)
 
     if not no_journald_log:
         journald_handler = journal.JournalHandler(SYSLOG_IDENTIFIER="wb-release")
@@ -94,25 +94,25 @@ def user_confirm(text=None, assume_yes=False):
             continue
         if result[0] == "y":
             return
-        else:
-            raise UserAbortException
+
+        raise UserAbortException
 
 
 def read_wb_release_file(filename):
-    d = {}
-    with open(filename) as f:
+    ret = {}
+    with open(filename, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line[0] != "#":
                 key, value = line.split("=", maxsplit=1)
-                d[key.lower()] = value.strip('"').strip("'")
+                ret[key.lower()] = value.strip('"').strip("'")
 
-    return ReleaseInfo(**d)
+    return ReleaseInfo(**ret)
 
 
 def read_apt_sources_list_suite(filename) -> str:
     if os.path.exists(filename):
-        with open(filename) as f:
+        with open(filename, encoding="utf-8") as f:
             for line in f:
                 line = line.partition("#")[0].rstrip()
                 if line.startswith("deb http"):
@@ -166,7 +166,7 @@ def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filenam
     suite = state.suite
     full_repo_url = make_full_repo_url(state, base_url)
 
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
@@ -185,7 +185,7 @@ def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filenam
 def generate_release_apt_preferences(
     state: SystemState, origin=WB_ORIGIN, filename=WB_RELEASE_APT_PREFERENCES_FILENAME
 ):
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
@@ -206,7 +206,7 @@ def generate_release_apt_preferences(
 def generate_tmp_apt_preferences(
     target_state: SystemState, origin=WB_ORIGIN, filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME
 ):
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
@@ -226,7 +226,7 @@ def generate_tmp_apt_preferences(
 
 
 def _cleanup_tmp_apt_preferences(filename=WB_TEMP_UPGRADE_PREFERENCES_FILENAME):
-    logger.info("Cleaning up temp apt preferences {}".format(filename))
+    logger.info("Cleaning up temp apt preferences %s", filename)
     os.remove(filename)
 
 
@@ -244,10 +244,10 @@ def _restore_system_config(original_state):
 
 
 def generate_system_config(state):
-    logger.info("Generating {} for {}".format(WB_SOURCES_LIST_FILENAME, state))
+    logger.info("Generating %s for %s", WB_SOURCES_LIST_FILENAME, state)
     generate_sources_list(state, filename=WB_SOURCES_LIST_FILENAME)
 
-    logger.info("Generating {} for {}".format(WB_RELEASE_APT_PREFERENCES_FILENAME, state))
+    logger.info("Generating %s for %s", WB_RELEASE_APT_PREFERENCES_FILENAME, state)
     generate_release_apt_preferences(state, filename=WB_RELEASE_APT_PREFERENCES_FILENAME)
 
 
@@ -276,8 +276,8 @@ def update_first_stage(assume_yes=False, log_filename=None):
         args += ["--log-filename", log_filename]
 
     # close log handlers in this instance to make it free for second one
-    for h in logger.handlers:
-        h.close()
+    for handler in logger.handlers:
+        handler.close()
 
     res = subprocess.run(args, check=True)
     return res.returncode
@@ -288,32 +288,33 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
         user_confirm(
             textwrap.dedent(
                 """
-                     Now the release will be switched to {}, prefix "{}".
+                Now the release will be switched to {}, prefix "{}".
 
-                     During update, the sources and preferences files will be changed,
-                     then apt-get dist-upgrade action will start. Some packages may be downgraded.
+                During update, the sources and preferences files will be changed,
+                then apt-get dist-upgrade action will start. Some packages may be downgraded.
 
-                     This process is potentially dangerous and may break your software.
+                This process is potentially dangerous and may break your software.
 
-                     STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!"""
+                STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!"""
             )
             .format(state.suite, state.repo_prefix)
             .strip(),
             assume_yes,
         )
 
-        logger.info('Setting target release to {}, prefix "{}"'.format(state.suite, state.repo_prefix))
+        logger.info('Setting target release to %s, prefix "%s"', state.suite, state.repo_prefix)
         generate_system_config(state)
         atexit.register(_restore_system_config, old_state)
     else:
         user_confirm(
             textwrap.dedent(
                 """
-                    Now system packages will be reinstalled to their release versions. Some packages may be downgraded.
+                Now system packages will be reinstalled to their release versions.
+                Some packages may be downgraded.
 
-                    This process is potentially dangerous and may break your software.
+                This process is potentially dangerous and may break your software.
 
-                    Make sure you have some time to fix system if any."""
+                Make sure you have some time to fix system if any."""
             ),
             assume_yes,
         )
@@ -341,17 +342,16 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
 
 def release_exists(state: SystemState):
     full_url = make_full_repo_url(state) + "/dists/{}/Release".format(state.suite)
-    logger.info("Accessing {}...".format(full_url))
+    logger.info("Accessing %s...", full_url)
 
     try:
-        resp = urllib.request.urlopen(full_url, timeout=10.0)
-        logger.info("Response code {}".format(resp.getcode()))
+        with urllib.request.urlopen(full_url, timeout=10.0) as resp:
+            logger.info("Response code %d", resp.getcode())
     except HTTPError as e:
         if e.code >= 400 and e.code < 500:
-            logger.info("Response code {}".format(e.code))
+            logger.info("Response code %d", e.code)
             return False
-        else:
-            raise
+        raise
     else:
         return True
 
@@ -362,8 +362,7 @@ def update_system(
     try:
         if second_stage:
             return update_second_stage(target_state, old_state, assume_yes=assume_yes)
-        else:
-            return update_first_stage(assume_yes=assume_yes, log_filename=log_filename)
+        return update_first_stage(assume_yes=assume_yes, log_filename=log_filename)
 
     except UserAbortException:
         logger.info("Aborted by user")
@@ -372,14 +371,14 @@ def update_system(
         logger.info("Interrupted by user")
         return RETCODE_USER_ABORT
     except subprocess.CalledProcessError as e:
-        logger.error("\nThe subprocess {} has failed with status {}".format(e.cmd, e.returncode))
+        logger.error("\nThe subprocess %s has failed with status %d", e.cmd, e.returncode)
         return e.returncode
     except Exception:
         logger.exception("Something went wrong, check output and try again")
         return RETCODE_FAULT
     finally:
         if log_filename:
-            logger.info("Update log is saved in {}".format(log_filename))
+            logger.info("Update log is saved in %s", log_filename)
 
 
 def print_banner():
@@ -413,29 +412,27 @@ def run_apt(*cmd, assume_yes=False):
         run_cmd(*args, env=env, log_suffix="apt.{}".format(cmd[0]))
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
-            raise UserAbortException()
-        else:
-            raise
+            raise UserAbortException() from e
+        raise
 
 
 def run_cmd(*args, env=None, log_suffix=None):
     if not log_suffix:
         log_suffix = args[0]
 
-    logger.debug('Starting cmd: "{}"'.format(" ".join(list(args))))
-    logger.debug('Environment: "{}"'.format(env))
+    logger.debug('Starting cmd: "%s"', " ".join(list(args)))
+    logger.debug('Environment: "%s"', env)
 
     proc_logger = logger.getChild(log_suffix)
 
-    proc = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    with subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
+        with proc.stdout:
+            for line in iter(proc.stdout.readline, b""):
+                proc_logger.info(line.decode().rstrip().rsplit("\r", 1)[-1])
 
-    with proc.stdout:
-        for line in iter(proc.stdout.readline, b""):
-            proc_logger.info(line.decode().rstrip().rsplit("\r", 1)[-1])
-
-    retcode = proc.wait()
-    if retcode != 0:
-        raise subprocess.CalledProcessError(retcode, args)
+        retcode = proc.wait()
+        if retcode != 0:
+            raise subprocess.CalledProcessError(retcode, args)
 
 
 def run_system_update(assume_yes=False):
@@ -481,7 +478,7 @@ def route(args, argv):
             return RETCODE_OK
 
     if not release_exists(target_state):
-        logger.error("Target state does not exist: {}".format(target_state))
+        logger.error("Target state does not exist: %s", target_state)
         return RETCODE_NO_TARGET
 
     return update_system(
@@ -493,19 +490,25 @@ def route(args, argv):
     )
 
 
-def main(argv=sys.argv):
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+
     parser = argparse.ArgumentParser(
         description="The tool to manage Wirenboard software releases",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent(
             """
-                                     By default, wb-release shows current release info (like -v flag).
-                                     This tool should be used with extra care on production installations."""
+            By default, wb-release shows current release info (like -v flag).
+            This tool should be used with extra care on production installations."""
         ),
     )
 
     parser.add_argument(
-        "-r", "--regenerate", action="store_true", help="regenerate factory sources.list and exit"
+        "-r",
+        "--regenerate",
+        action="store_true",
+        help="regenerate factory sources.list and exit",
     )
     parser.add_argument(
         "-t",
@@ -514,19 +517,49 @@ def main(argv=sys.argv):
         default=None,
         help="upgrade release to a new target (stable or testing)",
     )
-    parser.add_argument("-v", "--version", action="store_true", help="print version info and exit")
-    parser.add_argument("-y", "--yes", action="store_true", help='auto "yes" to all questions')
     parser.add_argument(
-        "-p", "--reset-packages", action="store_true", help="reset all packages to release versions and exit"
+        "-v",
+        "--version",
+        action="store_true",
+        help="print version info and exit",
     )
-    parser.add_argument("-l", "--log-filename", type=str, default=None, help="path to output log file")
-    parser.add_argument("--no-journald-log", action="store_true", help="disable journald logging")
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help='auto "yes" to all questions',
+    )
+    parser.add_argument(
+        "-p",
+        "--reset-packages",
+        action="store_true",
+        help="reset all packages to release versions and exit",
+    )
+    parser.add_argument(
+        "-l",
+        "--log-filename",
+        type=str,
+        default=None,
+        help="path to output log file",
+    )
+    parser.add_argument(
+        "--no-journald-log",
+        action="store_true",
+        help="disable journald logging",
+    )
 
     url_group = parser.add_mutually_exclusive_group()
     url_group.add_argument(
-        "--reset-url", action="store_true", help="reset repository URL to default Wirenboard one"
+        "--reset-url",
+        action="store_true",
+        help="reset repository URL to default Wirenboard one",
     )
-    url_group.add_argument("--prefix", type=str, default=None, help="override repository URL prefix")
+    url_group.add_argument(
+        "--prefix",
+        type=str,
+        default=None,
+        help="override repository URL prefix",
+    )
 
     parser.add_argument(
         "--no-preliminary-update",

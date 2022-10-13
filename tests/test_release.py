@@ -1,4 +1,5 @@
 import argparse
+import contextlib
 import io
 import os
 import subprocess
@@ -13,10 +14,15 @@ from wb.update_manager import release
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 
+# contextlib.nullcontext is available in Python 3.7
+@contextlib.contextmanager
+def nullcontext(ret):
+    yield ret
+
 
 def read_file_ignore_comments(filename):
     ret = ""
-    with open(filename) as f:
+    with open(filename, encoding="utf-8") as f:
         for line in f:
             ret += line.split("#", 1)[0].strip() + "\n"
 
@@ -133,7 +139,7 @@ class TestReleaseExistsChecker:
         self.state = release.SystemState("testing", "wb6/stretch", "my/prefix", True)
         self.url = "http://deb.wirenboard.com/my/prefix/wb6/stretch/dists/testing/Release"
 
-        ret = SimpleNamespace(getcode=lambda: 200)
+        ret = nullcontext(SimpleNamespace(getcode=lambda: 200))
         mocker.patch.object(urllib.request, "urlopen", side_effect=side_effect, return_value=ret)
 
     def test_exist(self, mocker):
@@ -515,7 +521,7 @@ class TestUpdate:
 
 
 class TestUpdateStageBase:
-    def patch(self, mocker, confirm=True):
+    def patch(self, mocker, argv=None, confirm=True):
         side_effect = None if confirm else release.UserAbortException
         mocker.patch.object(release, "user_confirm", side_effect=side_effect)
         mocker.patch.object(release, "run_system_update")
@@ -523,7 +529,10 @@ class TestUpdateStageBase:
 
 
 class TestUpdateFirstStage(TestUpdateStageBase):
-    def patch(self, mocker, argv=["wb-release"], confirm=True):
+    def patch(self, mocker, argv=None, confirm=True):
+        if argv is None:
+            argv = ["wb-release"]
+
         super().patch(mocker, confirm=confirm)
 
         mocker.patch("sys.argv", argv)
@@ -562,7 +571,7 @@ class TestUpdateFirstStage(TestUpdateStageBase):
 
 
 class TestUpdateSecondStage(TestUpdateStageBase):
-    def patch(self, mocker, confirm=True):
+    def patch(self, mocker, argv=None, confirm=True):
         super().patch(mocker, confirm=confirm)
 
         self.old_state = release.SystemState("testing", "wb6/stretch", "", True)
