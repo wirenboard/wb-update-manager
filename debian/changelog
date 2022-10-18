@@ -1,3 +1,9 @@
+wb-update-manager (1.2.7) stable; urgency=medium
+
+  * remove 'Update to Debian Bullseye available' message
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Mon, 17 Oct 2022 13:36:37 +0600
+
 wb-update-manager (1.2.6) stable; urgency=medium
 
   * format source code with black
