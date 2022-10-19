@@ -535,6 +535,9 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
         atexit.unregister(restore_debian_sources_lists)
         restore_debian_sources_lists()
 
+        logger.info('Copying restart-required motd message from current wb-update-manager version')
+        shutil.copy('/usr/share/wb-update-manager/99-wb-debian-release-updated', '/etc/update-motd.d/')
+
         logger.info('Updating openssh-server first to make Wiren Board available during update')
         run_cmd('systemctl', 'mask', 'ssh.service')
         run_apt('install', 'openssh-server', assume_yes=not confirm_steps)
@@ -580,7 +583,6 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
         logger.info('Cleaning up old packages')
         run_apt('autoremove', assume_yes=not confirm_steps)
 
-        shutil.copy('/usr/share/wb-update-manager/99-wb-debian-release-updated', '/etc/update-motd.d/')
         open('/run/wb-debian-release-updated', 'w').close()
 
         logger.info('Done! Please reboot system')
