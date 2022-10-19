@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade4) stable; urgency=medium
+
+  * fix reboot reminder message installation
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 19 Oct 2022 19:26:30 +0600
+
 wb-update-manager (1.2.5-upgrade3) stable; urgency=medium
 
   * Add notice about Debian Bullseye to login message
