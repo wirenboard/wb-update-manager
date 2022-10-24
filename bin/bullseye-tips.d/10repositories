@@ -1,0 +1,28 @@
+#!/bin/bash
+
+if [ "$LANG" == "ru-RU.UTF-8" ]; then
+    HEADER="Найдены потенциально устаревшие репозитории в файлах:"
+    FOOTER="Измените эти файлы вручную."
+else
+    HEADER="There are potentially obsolete sources lists in:"
+    FOOTER="Please modify these files manually."
+fi
+
+OBSOLETES=()
+
+for file in /etc/apt/sources.list.d/*; do
+    if grep -qE '^\s*deb.*(buster|stretch|wheezy)' "$file"; then
+        OBSOLETES+=( "$file" )
+    fi
+done
+
+if [[ ${#OBSOLETES[@]} -gt 0 ]]; then
+    echo " $HEADER"
+    echo ""
+    for file in "${OBSOLETES[@]}"; do
+        echo "  * $file"
+    done
+    echo ""
+    echo " $FOOTER"
+    echo ""
+fi
