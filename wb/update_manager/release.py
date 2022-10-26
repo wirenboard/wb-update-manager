@@ -498,6 +498,10 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
 
                          Make sure you have all your data backed up.""").strip(), assume_yes)
 
+        # create flag which allows wb-update-manager to finish upgrade
+        with open("/run/wb-release-tool-updated", "wb"):
+            pass
+
         logger.info('Performing upgrade on the current release')
         run_system_update(assume_yes)
         new_state = state._replace(target=(controller_version + '/bullseye'))

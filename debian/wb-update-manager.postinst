@@ -1,0 +1,23 @@
+#!/bin/bash -e
+
+#DEBHELPER#
+
+# Until 1.2.5-upgrade5 wb-release tool did not restart itself after update
+# during Debian release update. This forbids updating using outdated tool.
+
+if [[ "$1" = "configure" ]] && [[ -n "$2" ]] && dpkg --compare-versions "$2" lt "1.2.5-upgrade5~~"; then
+    if [[ ! -e "/run/wb-release-tool-updated" ]] && pgrep -f wb-release >/dev/null; then
+        cat <<EOF
+
+###########################################################
+#                                                         #
+#            wb-release tool is updated!                  #
+#                                                         #
+#  Please ignore error and run wb-release command again.  #
+#                                                         #
+###########################################################
+
+EOF
+        exit 1
+    fi
+fi
