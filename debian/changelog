@@ -1,3 +1,10 @@
+wb-update-manager (1.2.5-upgrade5) stable; urgency=medium
+
+  * break Debian release update process if updated tool is available
+  * restart wb-release tool after initial apt-upgrade on Debian release update
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 26 Oct 2022 19:03:53 +0600
+
 wb-update-manager (1.2.5-upgrade4) stable; urgency=medium
 
   * fix reboot reminder message installation

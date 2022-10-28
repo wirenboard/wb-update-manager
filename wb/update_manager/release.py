@@ -467,7 +467,8 @@ def _free_space_mb(path):
     return stat.f_bavail * stat.f_bsize / 1024 / 1024
 
 
-def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False):
+def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=False, confirm_steps=False,
+                               no_preliminary_update=False):
     # these services will be masked (preventing restart during update)
     # and then restarted manually
     SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service', 'wb-mqtt-mbgate.service')
@@ -490,16 +491,38 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
     controller_version = m.group(1)
 
     try:
-        user_confirm(textwrap.dedent("""
-                         Now the system will be updated using Apt without changing the release.
+        if not no_preliminary_update:
+            user_confirm(textwrap.dedent("""
+                             Now the system will be updated using Apt without changing the release.
 
-                         It is required to get latest state possible
-                         to make release change process more controllable.
+                             It is required to get latest state possible
+                             to make release change process more controllable.
 
-                         Make sure you have all your data backed up.""").strip(), assume_yes)
+                             Make sure you have all your data backed up.""").strip(), assume_yes)
 
-        logger.info('Performing upgrade on the current release')
-        run_system_update(assume_yes)
+            # create flag which allows wb-update-manager to finish upgrade
+            with open("/run/wb-release-tool-updated", "wb"):
+                pass
+
+            logger.info('Performing upgrade on the current release')
+            run_system_update(assume_yes)
+
+            logger.info('Starting (possibly updated) update utility as new process')
+            args = sys.argv + ['--no-preliminary-update']
+
+            # preserve update log filename from the first stage
+            if log_filename:
+                args += ['--log-filename', log_filename]
+
+            # close log handlers in this instance to make it free for second one
+            for h in logger.handlers:
+                h.close()
+
+            os.execvp(args[0], args)
+
+            logger.fatal('Should not be here after execvp!')
+            return 1
+
         new_state = state._replace(target=(controller_version + '/bullseye'))
         if not release_exists(new_state):
             logger.error('Target state does not exist: {}'.format(new_state))
@@ -622,7 +645,8 @@ def route(args, argv):
 
     if args.update_debian_release:
         return upgrade_new_debian_release(current_state, log_filename=args.log_filename,
-                                          assume_yes=args.yes, confirm_steps=args.confirm_steps)
+                                          assume_yes=args.yes, confirm_steps=args.confirm_steps,
+                                          no_preliminary_update=args.second_stage)
 
     if args.regenerate:
         return generate_system_config(current_state)
