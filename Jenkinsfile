@@ -1,2 +1,3 @@
-buildDebArchAll_test defaultPylintOptions: "-j 0 --recursive=y", 
-     defaultPylintTargets: "."
+buildDebArchAll defaultPylintOptions: "", 
+     defaultPythonChecksExcludes: "",
+     defaultWbdevImage: "contactless/devenv_lp"
