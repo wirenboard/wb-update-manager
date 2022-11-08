@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade6) stable; urgency=medium
+
+  * fix updated wb-release's panic during release switch within stretch
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Tue, 08 Nov 2022 12:48:32 +0600
+
 wb-update-manager (1.2.5-upgrade5) stable; urgency=medium
 
   * break Debian release update process if updated tool is available
