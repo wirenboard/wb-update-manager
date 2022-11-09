@@ -400,6 +400,11 @@ def run_cmd(*args, env=None, log_suffix=None):
 
     proc_logger = logger.getChild(log_suffix)
 
+    if env is None:
+        env = {}
+
+    env['LANG'] = 'C'
+
     proc = subprocess.Popen(args,
                             env=env,
                             stdout=subprocess.PIPE,
