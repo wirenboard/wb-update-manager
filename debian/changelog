@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-wb1) stable; urgency=medium
+
+  * fix updated wb-release's panic during release switch within stretch
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 09 Nov 2022 12:10:18 +0600
+
 wb-update-manager (1.2.5) stable; urgency=medium
 
   * log to journald instead of file by default

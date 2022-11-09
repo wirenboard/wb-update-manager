@@ -238,6 +238,11 @@ def update_first_stage(assume_yes=False, log_filename=None):
 
                  Make sure you have all your data backed up.""").strip(), assume_yes)
 
+    # create flag which allows old wb-update-manager to finish upgrade (from less than 1.2.5~upgrade5).
+    # This is required only for bullseye-transitional version of wb-update-manager.
+    with open("/run/wb-release-tool-updated", "wb"):
+        pass
+
     logger.info('Performing upgrade on the current release')
     run_system_update(assume_yes)
 
