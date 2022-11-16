@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade7) stable; urgency=medium
+
+  * run all commands with C locale by default
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 09 Nov 2022 21:06:35 +0600
+
 wb-update-manager (1.2.5-upgrade6) stable; urgency=medium
 
   * fix updated wb-release's panic during release switch within stretch
