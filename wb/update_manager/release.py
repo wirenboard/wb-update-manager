@@ -435,6 +435,10 @@ def run_cmd(*args, env=None, log_suffix=None):
 
     proc_logger = logger.getChild(log_suffix)
 
+    if env is None:
+        env = {}
+    env['LANG'] = 'C'
+
     with subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
         with proc.stdout:
             for line in iter(proc.stdout.readline, b""):
