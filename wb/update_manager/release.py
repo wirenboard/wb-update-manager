@@ -484,8 +484,12 @@ def upgrade_new_debian_release(state: SystemState, log_filename, assume_yes=Fals
     SERVICES_TO_RESTART = ('nginx.service', 'mosquitto.service', 'wb-mqtt-mbgate.service')
     MASKED_SERVICES = ('nginx.service', 'mosquitto.service', 'hostapd.service', 'wb-mqtt-mbgate.service')
 
+    # these values were checked using binary search on configuration with all standard software
+    # with different volumes on / and /var (not fully correct, but still representative).
+    # minimal working solution was 125 MB for root and 300 MB for /var.
+    # I add a little bit of extra requirement on root to be on a safe side.
     MIN_CACHE_FREE_SPACE_MB = 300
-    MIN_SYSTEM_FREE_SPACE_MB = 300
+    MIN_SYSTEM_FREE_SPACE_MB = 150
 
     if _free_space_mb('/var/cache/apt/archives') < MIN_CACHE_FREE_SPACE_MB:
         logger.error('Need at least %d MB of free space for apt cache (/mnt/data)', MIN_CACHE_FREE_SPACE_MB)
