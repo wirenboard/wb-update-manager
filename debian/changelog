@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade8) stable; urgency=medium
+
+  * ease out the free space requirements before Debian release update
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 23 Nov 2022 13:55:04 +0600
+
 wb-update-manager (1.2.5-upgrade7) stable; urgency=medium
 
   * run all commands with C locale by default
