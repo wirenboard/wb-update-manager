@@ -4,12 +4,12 @@ if [ "x$LANG" == "xru-RU.UTF-8" ]; then
     echo -e "Доступно обновление до \u001b[1m\u001b[33mDebian Bullseye\u001b[0m!"
     echo -e "Для обновления выпоните команду \u001b[1m\u001b[33mwb-release --update-debian-release\u001b[0m"
     echo -e "(обновление может длиться до 45 минут)\n"
-    echo -e "Или скачайте FIT-файл прошивки с http://fw-releases.wirenboard.com/?prefix=fit_image/ и"
+    echo -e "Или скачайте FIT-файл прошивки с http://fw-releases.wirenboard.com/?prefix=fit_image/testing и"
     echo -e " обновите через веб-интерфейс контроллера, перейдя в Настройки → Система\n"
 else
     echo -e "Update to \u001b[1m\u001b[33mDebian Bullseye\u001b[0m is available!"
     echo -e "Run \u001b[1m\u001b[33mwb-release --update-debian-release\u001b[0m to update"
     echo -e "(the update can take up to 45 minutes)\n"
-    echo -e "Or download FIT firmware image from http://fw-releases.wirenboard.com/?prefix=fit_image/ and"
+    echo -e "Or download FIT firmware image from http://fw-releases.wirenboard.com/?prefix=fit_image/testing and"
     echo -e " update via the web interface by visiting Settings → System\n"
 fi
