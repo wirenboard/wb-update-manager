@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade9) stable; urgency=medium
+
+  * Add advert for upgrade via FIT
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 02 Dec 2022 21:23:00 +0400
+
 wb-update-manager (1.2.5-upgrade8) stable; urgency=medium
 
   * ease out the free space requirements before Debian release update
