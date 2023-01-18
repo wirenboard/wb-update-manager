@@ -366,7 +366,7 @@ class TestRoute:
             "second_stage": False,
             "log_filename": None,
             "no_journald_log": False,
-            "update_debian_release": False
+            "update_debian_release": False,
             "confirm_steps": False,
         }
         new_kwargs.update(**kwargs)
@@ -467,7 +467,7 @@ class TestArgParser:
             "prefix": None,
             "second_stage": False,
             "no_journald_log": False,
-            "update_debian_release": False
+            "update_debian_release": False,
             "confirm_steps": False,
         }
         self.default_args = argparse.Namespace(**args)  # pylint: disable=attribute-defined-outside-init
@@ -501,7 +501,6 @@ class TestUpdate:
         )
         mocker.patch.object(release, "update_first_stage", return_value=return_value, side_effect=raise_exc)
         mocker.patch.object(release, "update_second_stage", return_value=return_value, side_effect=raise_exc)
-
     def test_first_stage(self, mocker):
         self.patch(mocker)
 
