@@ -1,13 +1,48 @@
-#!/bin/sh
+#!/bin/bash
 
-[ ! -e /run/wb-debian-release-updated ] && exit
+PROGRESS_FLAG="/var/lib/wb-debian-release-update-in-progress"
 
-if [ "x$LANG" == "xru-RU.UTF-8" ]; then
-    echo "Версия Debian обновилась до bullseye!"
-    echo "Пожалуйста, перезагрузите Wiren Board."
+PROGRESS_MSG_EN="Debian upgrade procedure in progress! Please do not turn Wiren Board off."
+PROGRESS_MSG_RU="Производится обновление Debian! Пожалуйста, не выключайте Wiren Board."
+
+ERROR_MSG_EN=$(echo -e "Seems like Debian upgrade procedure was interrupted.
+
+Please try running \u001b[1m\u001b[33mwb-release --update-debian-release\u001b[0m again.")
+ERROR_MSG_RU=$(echo -e "Похоже, процедура обновления Debian была прервана.
+
+Пожалуйста, запустите \u001b[1m\u001b[33mwb-release --update-debian-release\u001b[0m ещё раз.")
+
+DONE_MSG_EN="Debian release is updated to bullseye!
+Please reboot your Wiren Board."
+
+DONE_MSG_RU="Версия Debian обновилась до bullseye!
+Пожалуйста, перезагрузите Wiren Board."
+
+if [ "$LANG" == "ru-RU.UTF-8" ]; then
+    PROGRESS_MSG="$PROGRESS_MSG_RU"
+    DONE_MSG="$DONE_MSG_RU"
+    ERROR_MSG="$ERROR_MSG_RU"
 else
-    echo "Debian release is updated to bullseye!"
-    echo "Please reboot your Wiren Board."
+    PROGRESS_MSG="$PROGRESS_MSG_EN"
+    DONE_MSG="$DONE_MSG_EN"
+    ERROR_MSG="$ERROR_MSG_EN"
 fi
 
-echo
+if [ -e "$PROGRESS_FLAG" ]; then
+    case $(cat "$PROGRESS_FLAG") in
+    *progress*)
+        if ps aux | grep -q "[u]pdate-debian-release"; then
+            echo "$PROGRESS_MSG"
+        else
+            echo "$ERROR_MSG"
+        fi
+        ;;
+    *error*)
+        echo "$ERROR_MSG"
+        ;;
+    esac
+
+    exit
+fi
+
+[ -e /run/wb-debian-release-updated ] && echo "$DONE_MSG"
