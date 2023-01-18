@@ -1,6 +1,6 @@
 wb-update-manager (1.2.5-upgrade10) stable; urgency=medium
 
-  * format Python code according to the WB codestyle
+  * no functional changes; format Python code according to the WB codestyle
 
  -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 18 Jan 2023 17:38:47 +0600
 
