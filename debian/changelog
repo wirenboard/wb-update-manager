@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade10) stable; urgency=medium
+
+  * format Python code according to the WB codestyle
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 18 Jan 2023 17:38:47 +0600
+
 wb-update-manager (1.2.5-upgrade9) stable; urgency=medium
 
   * Add advert for upgrade via FIT
