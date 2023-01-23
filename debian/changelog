@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade11) stable; urgency=medium
+
+  * make Bullseye upgrade procedure more robust
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Thu, 19 Jan 2023 21:50:52 +0600
+
 wb-update-manager (1.2.5-upgrade10) stable; urgency=medium
 
   * no functional changes; format Python code according to the WB codestyle
