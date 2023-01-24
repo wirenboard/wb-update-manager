@@ -45,4 +45,4 @@ if [ -e "$PROGRESS_FLAG" ]; then
     exit
 fi
 
-[ -e /run/wb-debian-release-updated ] && echo "$DONE_MSG"
+if [ -e /run/wb-debian-release-updated ]; then echo "$DONE_MSG"; fi
