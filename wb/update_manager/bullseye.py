@@ -301,12 +301,12 @@ def make_new_state(state: SystemState) -> SystemState:
 def set_global_progress_flag(value: str):
     flag = "/var/lib/wb-debian-release-update-in-progress"
 
-    if not value:
+    if value:
+        with open(flag, "w", encoding="utf-8") as f:
+            f.write(value)
+    else:
         logger.debug("Removing system release update flag")
         os.remove(flag)
-
-    with open(flag, "w", encoding="utf-8") as f:
-        f.write(value)
 
 
 def install_progress_banner():
