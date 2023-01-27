@@ -14,12 +14,16 @@ from pathlib import Path
 from urllib.error import HTTPError
 
 __all__ = (
+    "CONFIRM_STEPS_ARGNAME",
+    "LOG_FILENAME_ARGNAME",
+    "NO_PRELIMINARY_UPDATE_ARGNAME",
     "RETCODE_EINVAL",
     "RETCODE_FAULT",
     "RETCODE_NO_TARGET",
     "RETCODE_OK",
     "RETCODE_USER_ABORT",
     "DEFAULT_REPO_URL",
+    "UPDATE_DEBIAN_RELEASE_ARGNAME",
     "WB_RELEASE_FILENAME",
     "WB_SOURCES_LIST_FILENAME",
     "WB_ORIGIN",
@@ -48,6 +52,11 @@ WB_ORIGIN = "wirenboard"
 WB_RELEASE_FILENAME = "/usr/lib/wb-release"
 WB_SOURCES_LIST_FILENAME = "/etc/apt/sources.list.d/wirenboard.list"
 WB_RELEASE_APT_PREFERENCES_FILENAME = "/etc/apt/preferences.d/20wb-release"
+
+CONFIRM_STEPS_ARGNAME = "--confirm-steps"
+LOG_FILENAME_ARGNAME = "--log-filename"
+NO_PRELIMINARY_UPDATE_ARGNAME = "--no-preliminary-update"
+UPDATE_DEBIAN_RELEASE_ARGNAME = "--update-debian-release"
 
 
 class UserAbortException(Exception):

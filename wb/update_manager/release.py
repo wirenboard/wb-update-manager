@@ -15,11 +15,15 @@ from systemd import journal
 
 from .bullseye import upgrade_new_debian_release
 from .common import (
+    CONFIRM_STEPS_ARGNAME,
+    LOG_FILENAME_ARGNAME,
+    NO_PRELIMINARY_UPDATE_ARGNAME,
     RETCODE_EINVAL,
     RETCODE_FAULT,
     RETCODE_NO_TARGET,
     RETCODE_OK,
     RETCODE_USER_ABORT,
+    UPDATE_DEBIAN_RELEASE_ARGNAME,
     WB_ORIGIN,
     WB_RELEASE_FILENAME,
     WB_SOURCES_LIST_FILENAME,
@@ -193,11 +197,11 @@ def update_first_stage(assume_yes=False, log_filename=None):
     run_system_update(assume_yes)
 
     logger.info("Starting (possibly updated) update utility as new process")
-    args = sys.argv + ["--no-preliminary-update"]
+    args = sys.argv + [NO_PRELIMINARY_UPDATE_ARGNAME]
 
     # preserve update log filename from the first stage
     if log_filename:
-        args += ["--log-filename", log_filename]
+        args += [LOG_FILENAME_ARGNAME, log_filename]
 
     # close log handlers in this instance to make it free for second one
     for h in logger.handlers:
@@ -390,7 +394,7 @@ def main(argv=sys.argv):
     parser.add_argument(
         "-p", "--reset-packages", action="store_true", help="reset all packages to release versions and exit"
     )
-    parser.add_argument("-l", "--log-filename", type=str, default=None, help="path to output log file")
+    parser.add_argument("-l", LOG_FILENAME_ARGNAME, type=str, default=None, help="path to output log file")
     parser.add_argument("--no-journald-log", action="store_true", help="disable journald logging")
 
     url_group = parser.add_mutually_exclusive_group()
@@ -400,17 +404,21 @@ def main(argv=sys.argv):
     url_group.add_argument("--prefix", type=str, default=None, help="override repository URL prefix")
 
     parser.add_argument(
-        "--no-preliminary-update",
+        NO_PRELIMINARY_UPDATE_ARGNAME,
         dest="second_stage",
         action="store_true",
         help="skip upgrade before switching (not recommended)",
     )
 
     parser.add_argument(
-        "--update-debian-release", action="store_true", help="update Debian release to bullseye"
+        UPDATE_DEBIAN_RELEASE_ARGNAME,
+        dest="update_debian_release",
+        action="store_true",
+        help="update Debian release to bullseye",
     )
     parser.add_argument(
-        "--confirm-steps",
+        CONFIRM_STEPS_ARGNAME,
+        dest="confirm_steps",
         action="store_true",
         help="ask for confirmation on each step (for Debian release update)",
     )

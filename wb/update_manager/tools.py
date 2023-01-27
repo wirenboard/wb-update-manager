@@ -22,11 +22,11 @@ def apt_upgrade(dist=True, assume_yes=False):
     run_apt(cmd, assume_yes=assume_yes)
 
 
-def apt_hold(*packages):
+def apt_mark_hold(*packages):
     run_cmd("apt-mark", "hold", *packages, log_suffix="apt-mark")
 
 
-def apt_unhold(*packages):
+def apt_mark_unhold(*packages):
     run_cmd("apt-mark", "unhold", *packages, log_suffix="apt-mark")
 
 

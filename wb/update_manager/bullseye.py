@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -8,10 +7,13 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from .common import (
+    CONFIRM_STEPS_ARGNAME,
+    NO_PRELIMINARY_UPDATE_ARGNAME,
     RETCODE_FAULT,
     RETCODE_NO_TARGET,
     RETCODE_OK,
     RETCODE_USER_ABORT,
+    UPDATE_DEBIAN_RELEASE_ARGNAME,
     SystemState,
     UserAbortException,
     _cleanup_apt_cached_lists,
@@ -23,10 +25,10 @@ from .common import (
 )
 from .tools import (
     apt_autoremove,
-    apt_hold,
     apt_install,
+    apt_mark_hold,
+    apt_mark_unhold,
     apt_purge,
-    apt_unhold,
     apt_update,
     apt_upgrade,
     systemd_mask,
@@ -120,11 +122,11 @@ def upgrade_and_maybe_switch_tool(assume_yes, log_filename=None):
         apt_install("wb-update-manager", assume_yes=assume_yes)
 
     logger.info("Starting (possibly updated) update utility as new process")
-    args = sys.argv + ["--no-preliminary-update"]
+    args = sys.argv + [NO_PRELIMINARY_UPDATE_ARGNAME]
 
     # preserve update log filename from the first stage
     if log_filename:
-        args += ["--log-filename", log_filename]
+        args += [LOG_FILENAME_ARGNAME, log_filename]
 
     # close log handlers in this instance to make it free for second one
     for handler in logger.handlers:
@@ -202,11 +204,11 @@ def mask_services(*services):
 def hold_packages(*packages):
     try:
         logger.info("Setting packages %s on hold", str(packages))
-        apt_hold(*packages)
+        apt_mark_hold(*packages)
         yield
     finally:
         logger.info("Unholding packages %s", str(packages))
-        apt_unhold(*packages)
+        apt_mark_unhold(*packages)
 
 
 def ensure_new_openssh(assume_yes):
@@ -293,8 +295,7 @@ def apply_new_system_config(current_state, new_state):
 
 
 def make_new_state(state: SystemState) -> SystemState:
-    match = re.search("(.+)/.+", state.target)
-    controller_version = match.group(1)
+    controller_version = state.target.split("/", maxsplit=1)[0]
     return state._replace(target=(controller_version + "/bullseye"))
 
 
@@ -325,11 +326,11 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
 
             This process is potentially dangerous and may break your software.
 
-            To control process on each step, use this command with --confirm-steps flag.
+            To control process on each step, use this command with {} flag.
 
             STOP RIGHT THERE IF THIS IS A PRODUCTION SYSTEM!"""
         )
-        .format(new_state.suite, new_state.repo_prefix, new_state.target)
+        .format(new_state.suite, new_state.repo_prefix, new_state.target, CONFIRM_STEPS_ARGNAME)
         .strip(),
         assume_yes,
     )
@@ -406,7 +407,7 @@ def upgrade_new_debian_release(
             logger.info("Update log is saved in %s", log_filename)
 
     if retcode != RETCODE_OK:
-        logger.info("Try running wb-release --update-debian-release again to continue transition")
+        logger.info("Try running wb-release {} again to continue transition", UPDATE_DEBIAN_RELEASE_ARGNAME)
         set_global_progress_flag("error")
 
     return retcode

@@ -105,7 +105,9 @@ def test_packages_always_become_unhold(successful_cmds, run_cmd_mock=None, **_):
 
     run_cmd_mock.side_effect = fail_on_nth_call(successful_cmds)
 
-    with patch.multiple("wb.update_manager.bullseye", apt_hold=collector.adder, apt_unhold=collector.remover):
+    with patch.multiple(
+        "wb.update_manager.bullseye", apt_mark_hold=collector.adder, apt_mark_unhold=collector.remover
+    ):
         run_usual_upgrade()
 
     assert len(collector.collected) == 0
