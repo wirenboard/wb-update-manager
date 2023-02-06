@@ -407,7 +407,7 @@ def upgrade_new_debian_release(
             logger.info("Update log is saved in %s", log_filename)
 
     if retcode != RETCODE_OK:
-        logger.info("Try running wb-release {} again to continue transition", UPDATE_DEBIAN_RELEASE_ARGNAME)
+        logger.info("Try running wb-release %s again to continue transition", UPDATE_DEBIAN_RELEASE_ARGNAME)
         set_global_progress_flag("error")
 
     return retcode

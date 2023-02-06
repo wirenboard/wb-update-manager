@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade12) stable; urgency=medium
+
+  * fix typo in logging which led to large stacktrace on failed update
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Mon, 06 Feb 2023 21:33:39 +0600
+
 wb-update-manager (1.2.5-upgrade11) stable; urgency=medium
 
   * make Bullseye upgrade procedure more robust
