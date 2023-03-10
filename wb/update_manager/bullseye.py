@@ -33,6 +33,7 @@ from .tools import (
     apt_upgrade,
     systemd_mask,
     systemd_restart,
+    systemd_enable,
     systemd_unmask,
 )
 
@@ -234,8 +235,9 @@ def mark_python2_for_cleanup():
 
 def main_upgrade(assume_yes):
     # these services will be masked (preventing restart during update)
-    # and then restarted manually
-    services_to_restart = ("nginx.service", "mosquitto.service", "wb-mqtt-mbgate.service")
+    # and then enabled or restarted manually
+    services_to_restart = ("nginx.service", "mosquitto.service","hostapd.service", "wb-mqtt-mbgate.service")
+    services_to_enable = ("hostapd.service")
     services_to_mask = ("nginx.service", "mosquitto.service", "hostapd.service", "wb-mqtt-mbgate.service")
 
     apt_update()
@@ -254,6 +256,7 @@ def main_upgrade(assume_yes):
         apt_update()
         apt_upgrade(dist=True, assume_yes=assume_yes)
 
+    systemd_enable(*services_to_enable)
     systemd_restart(*services_to_restart)
 
 
