@@ -31,9 +31,9 @@ from .tools import (
     apt_purge,
     apt_update,
     apt_upgrade,
+    systemd_enable,
     systemd_mask,
     systemd_restart,
-    systemd_enable,
     systemd_unmask,
 )
 
@@ -237,7 +237,7 @@ def main_upgrade(assume_yes):
     # these services will be masked (preventing restart during update)
     # and then enabled or restarted manually
     services_to_restart = ("nginx.service", "mosquitto.service", "wb-mqtt-mbgate.service")
-    services_to_enable = ("hostapd.service",)
+    services_to_enable = ("hostapd.service", "wb-configs.service", "wb-configs-early.service")
     services_to_mask = ("nginx.service", "mosquitto.service", "hostapd.service", "wb-mqtt-mbgate.service")
 
     apt_update()

@@ -43,9 +43,11 @@ def systemd_unmask(*services):
     for service in services:
         run_cmd("systemctl", "unmask", service, log_suffix="systemctl")
 
+
 def systemd_enable(*services):
     for service in services:
-        run_cmd("systemctl","enable",service, log_suffix="systemctl")
+        run_cmd("systemctl", "enable", service, log_suffix="systemctl")
+
 
 def systemd_restart(*services):
     for service in services:
