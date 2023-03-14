@@ -31,6 +31,7 @@ from .tools import (
     apt_purge,
     apt_update,
     apt_upgrade,
+    dpkg_reconfigure,
     systemd_enable,
     systemd_mask,
     systemd_restart,
@@ -237,7 +238,7 @@ def main_upgrade(assume_yes):
     # these services will be masked (preventing restart during update)
     # and then enabled or restarted manually
     services_to_restart = ("nginx.service", "mosquitto.service", "wb-mqtt-mbgate.service")
-    services_to_enable = ("hostapd.service", "wb-configs.service", "wb-configs-early.service")
+    services_to_reenable = ("hostapd.service",)
     services_to_mask = ("nginx.service", "mosquitto.service", "hostapd.service", "wb-mqtt-mbgate.service")
 
     apt_update()
@@ -256,13 +257,19 @@ def main_upgrade(assume_yes):
         apt_update()
         apt_upgrade(dist=True, assume_yes=assume_yes)
 
-    systemd_enable(*services_to_enable)
+    logger.info("Enabling services which were possibly disabled during update")
+    systemd_enable(*services_to_reenable)
+
+    logger.info("Restaring updated services")
     systemd_restart(*services_to_restart)
 
 
 def purge_old_wb_configs(assume_yes):
     logger.info("Purging wb-configs-stretch to remove old sources.list")
     apt_purge("wb-configs-stretch", assume_yes=assume_yes)
+
+    logger.info("Reconfiguring new wb-configs to enable its services back")
+    dpkg_reconfigure("wb-configs")
 
 
 def touch_system_update_done_flag():

@@ -52,3 +52,7 @@ def systemd_enable(*services):
 def systemd_restart(*services):
     for service in services:
         run_cmd("systemctl", "restart", service, log_suffix="systemctl")
+
+
+def dpkg_reconfigure(package):
+    run_cmd("dpkg-reconfigure", "-f", "noninteractive", package, log_suffix="dpkg-reconfigure")
