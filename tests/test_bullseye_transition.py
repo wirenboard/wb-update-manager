@@ -220,3 +220,12 @@ def test_apply_system_config_with_error(
         ]
     )
     _cleanup_apt_cached_lists_mock.assert_called_once()
+
+
+@patch_all_systemish
+def test_wb_configs_reconfigured_after_purge_of_stretch(**_):
+    dpkg_reconfigure_mock = MagicMock()
+    with patch.multiple("wb.update_manager.bullseye", dpkg_reconfigure=dpkg_reconfigure_mock):
+        run_usual_upgrade()
+
+    dpkg_reconfigure_mock.assert_called_once_with("wb-configs")

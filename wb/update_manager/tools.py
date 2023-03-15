@@ -44,6 +44,15 @@ def systemd_unmask(*services):
         run_cmd("systemctl", "unmask", service, log_suffix="systemctl")
 
 
+def systemd_enable(*services):
+    for service in services:
+        run_cmd("systemctl", "enable", service, log_suffix="systemctl")
+
+
 def systemd_restart(*services):
     for service in services:
         run_cmd("systemctl", "restart", service, log_suffix="systemctl")
+
+
+def dpkg_reconfigure(package):
+    run_cmd("dpkg-reconfigure", "-f", "noninteractive", package, log_suffix="dpkg-reconfigure")

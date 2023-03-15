@@ -1,3 +1,10 @@
+wb-update-manager (1.2.5-upgrade13) stable; urgency=medium
+
+  * add hostapd service manual enabling after unmasking 
+  * reconfigure wb-configs after wb-configs-stretch purge to restore service
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.ru>  Fri, 10 Mar 2023 12:33:46 +0300
+
 wb-update-manager (1.2.5-upgrade12) stable; urgency=medium
 
   * fix typo in logging which led to large stacktrace on failed update
