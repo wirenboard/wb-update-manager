@@ -55,4 +55,4 @@ def systemd_restart(*services):
 
 
 def dpkg_reconfigure(package):
-    run_cmd("dpkg-reconfigure", "-f", "noninteractive", package, log_suffix="dpkg-reconfigure")
+    run_cmd("/usr/sbin/dpkg-reconfigure", "-f", "noninteractive", package, log_suffix="dpkg-reconfigure")
