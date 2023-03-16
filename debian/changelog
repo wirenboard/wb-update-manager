@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade14) stable; urgency=medium
+
+  * fix dpkg-reconfigure not found error
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Thu, 16 Mar 2023 13:00:55 +0600
+
 wb-update-manager (1.2.5-upgrade13) stable; urgency=medium
 
   * add hostapd service manual enabling after unmasking 
