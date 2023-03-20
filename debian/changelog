@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-upgrade15) stable; urgency=medium
+
+  * fix ModemManager installation during upgrade from stretch
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Mon, 20 Mar 2023 13:31:45 +0600
+
 wb-update-manager (1.2.5-upgrade14) stable; urgency=medium
 
   * fix dpkg-reconfigure not found error
