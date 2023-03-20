@@ -168,7 +168,7 @@ def create_temp_apt_configs():
 
                 Package: *
                 Pin: release o=Debian,n=bullseye*
-                Pin-Priority: 600"""
+                Pin-Priority: 501"""  # this must be < 510 in order to install backports deps properly
             ).strip()
         )
 
