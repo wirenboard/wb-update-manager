@@ -260,7 +260,7 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
 
     logger.info("Restarting wb-rules to show actual release info in MQTT")
     try:
-        run_cmd("invoke-rc.d", "wb-rules", "restart")
+        run_cmd("/usr/sbin/invoke-rc.d", "wb-rules", "restart")
     except subprocess.CalledProcessError:
         pass
 

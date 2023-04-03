@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-wb1-upgrade17) stable; urgency=medium
+
+  * fix invoke-rc.d not found error
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Mon, 03 Apr 2023 18:36:33 +0600
+
 wb-update-manager (1.2.5-wb1-upgrade16) stable; urgency=medium
 
   * version bump to upgrade from 1.2.5-wb1; no functional changes
