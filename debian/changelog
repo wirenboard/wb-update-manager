@@ -1,3 +1,10 @@
+wb-update-manager (1.2.5-wb1-upgrade18) stable; urgency=medium
+
+  * call first apt-upgrade with Immediate-Configure=false to keep lower disk
+    space footprint
+
+ -- Nikita Maslov <nikita.maslov@wirenboard.ru>  Wed, 12 Apr 2023 17:34:12 +0600
+
 wb-update-manager (1.2.5-wb1-upgrade17) stable; urgency=medium
 
   * fix invoke-rc.d not found error

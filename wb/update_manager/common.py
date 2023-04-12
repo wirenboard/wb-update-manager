@@ -109,7 +109,7 @@ def release_exists(state: SystemState):
         return True
 
 
-def run_apt(*cmd, assume_yes=False):
+def run_apt(*cmd, assume_yes=False, immediate_configure=False):
     args = ["apt-get", "-q"] + list(cmd)
     env = os.environ.copy()
 
@@ -121,6 +121,9 @@ def run_apt(*cmd, assume_yes=False):
         "Dpkg::Options::=--force-confold",
         "--allow-downgrades",
     ]
+
+    if immediate_configure:
+        args += ["-o", "APT::Immediate-Configure=false"]
 
     if assume_yes:
         args += ["--yes"]

@@ -17,9 +17,9 @@ def apt_install(*packages, assume_yes=False):
     run_apt("install", *packages, assume_yes=assume_yes)
 
 
-def apt_upgrade(dist=True, assume_yes=False):
+def apt_upgrade(dist=True, assume_yes=False, immediate_configure=False):
     cmd = "dist-upgrade" if dist else "upgrade"
-    run_apt(cmd, assume_yes=assume_yes)
+    run_apt(cmd, assume_yes=assume_yes, immediate_configure=immediate_configure)
 
 
 def apt_mark_hold(*packages):

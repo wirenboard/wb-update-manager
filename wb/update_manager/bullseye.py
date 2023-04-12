@@ -250,7 +250,9 @@ def main_upgrade(assume_yes):
 
     with mask_services(*services_to_mask):
         logger.info("Performing actual upgrade")
-        apt_upgrade(dist=True, assume_yes=True)  # this step is confirmed in simulating above
+        apt_upgrade(
+            dist=True, assume_yes=True, immediate_configure=True
+        )  # this step is confirmed in simulating above
 
         logger.info("Performing actual upgrade - second stage (e2fsprogs update)")
         logger.debug("Updating packages list, may be outdated after long update procedure")
