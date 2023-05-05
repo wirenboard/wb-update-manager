@@ -1,3 +1,9 @@
+wb-update-manager (1.2.5-wb1-upgrade18) stable; urgency=medium
+
+  * fix FIT download url
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Thu, 04 May 2023 18:23:00 +0400
+
 wb-update-manager (1.2.5-wb1-upgrade17) stable; urgency=medium
 
   * fix invoke-rc.d not found error
