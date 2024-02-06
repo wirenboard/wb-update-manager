@@ -1,3 +1,9 @@
+wb-update-manager (1.3.3) stable; urgency=medium
+
+  * Fix release file access issue due to security reasons
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.ru>  Tue, 06 Feb 2024 17:39:12 +0300
+
 wb-update-manager (1.3.2) stable; urgency=medium
 
   * Fix PKG-INFO

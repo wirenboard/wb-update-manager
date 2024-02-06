@@ -342,10 +342,11 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
 
 def release_exists(state: SystemState):
     full_url = make_full_repo_url(state) + "/dists/{}/Release".format(state.suite)
+    request = urllib.request.Request(url=full_url, headers={"User-Agent": "Mozilla/5.0"})
     logger.info("Accessing %s...", full_url)
 
     try:
-        with urllib.request.urlopen(full_url, timeout=10.0) as resp:
+        with urllib.request.urlopen(request, timeout=10.0) as resp:
             logger.info("Response code %d", resp.getcode())
     except HTTPError as e:
         if e.code >= 400 and e.code < 500:
