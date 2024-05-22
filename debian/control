@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Nikita Maslov <nikita.maslov@wirenboard.com>
 Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools, pkg-config,
-               python3-pytest, python3-pytest-mock, python3-systemd
+               python3-pytest, python3-tomli, python3-pytest-mock, python3-systemd
 Standards-Version: 4.5.0
 Homepage: https://github.com/wirenboard/wb-update-manager
 
