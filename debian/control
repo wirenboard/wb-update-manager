@@ -6,18 +6,19 @@ Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools, pk
                python3-pytest, python3-tomli, python3-pytest-mock, python3-systemd
 Standards-Version: 4.5.0
 Homepage: https://github.com/wirenboard/wb-update-manager
+X-Python3-Version: >= 3.5
 
 Package: python3-wb-update-manager
 Section: python
 Architecture: all
-Depends: wb-update-manager (>= 1.3.4)
+Depends: wb-update-manager
 Description: transitional dummy package
  This is a transitional dummy package. It can safely be removed.
 
 Package: wb-update-manager
 Architecture: all
-Breaks: python3-wb-update-manager (<< 1.3.4)
-Replaces: python3-wb-update-manager (<< 1.3.4)
+Breaks: python3-wb-update-manager
+Replaces: python3-wb-update-manager
 Provides: python3-wb-update-manager
 Depends: ${misc:Depends}, ${python3:Depends}, python3-systemd, wb-release-info
 Description: Wirenboard software updates and release management tool
