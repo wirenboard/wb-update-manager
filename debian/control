@@ -11,16 +11,12 @@ X-Python3-Version: >= 3.5
 Package: python3-wb-update-manager
 Section: python
 Architecture: all
-Depends: wb-update-manager
-Description: transitional dummy package
- This is a transitional dummy package. It can safely be removed.
+Depends: ${python3:Depends}, ${misc:Depends}, python3-systemd, wb-release-info
+Description: Wirenboard software updates and release management tool - python3 library
 
 Package: wb-update-manager
 Architecture: all
-Breaks: python3-wb-update-manager
-Replaces: python3-wb-update-manager
-Provides: python3-wb-update-manager
-Depends: ${misc:Depends}, ${python3:Depends}, python3-systemd, wb-release-info
+Depends: ${misc:Depends}, python3 (>= 3.5), python3-wb-update-manager (= ${binary:Version})
 Description: Wirenboard software updates and release management tool
  This package currently includes the library to read release information
  from Python scripts and the wb-release tool to switch between differrent
