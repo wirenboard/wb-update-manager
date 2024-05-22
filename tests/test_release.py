@@ -14,6 +14,7 @@ from wb.update_manager import release
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 
+
 # contextlib.nullcontext is available in Python 3.7
 @contextlib.contextmanager
 def nullcontext(ret):
