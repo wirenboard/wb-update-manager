@@ -1,3 +1,10 @@
+wb-update-manager (1.3.4) stable; urgency=medium
+
+  * Remove wb-utils from dependencies
+  * Make python3-wb-update-manager transitional dummy package
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Wed, 22 May 2024 14:00:00 +0400
+
 wb-update-manager (1.3.3) stable; urgency=medium
 
   * Add armhf as foreign arch on WB8
