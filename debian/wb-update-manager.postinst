@@ -2,14 +2,11 @@
 
 set -e
 
-. /usr/lib/wb-utils/wb_env.sh
-wb_source "of"
-
 #DEBHELPER#
 
 rm -rf /etc/update-motd.d/99-wb-bullseye-available
 
 # Allow to install armhf packages on wb8
-if of_machine_match "wirenboard,wirenboard-8xx"; then
+if [[ $(awk -F= '/TARGET/ {print $2}' /usr/lib/wb-release) =~ ^wb8/ ]]; then
     dpkg --add-architecture armhf
 fi
