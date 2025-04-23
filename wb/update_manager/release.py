@@ -175,7 +175,7 @@ def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filenam
             #
             # If you want to switch to testing, use command
             #   wb-release -t testing
-            deb {full_repo_url} {suite} main"""
+            deb http://deb.wirenboard.com/all experimental.trixie main"""
             )
             .format(full_repo_url=full_repo_url, suite=suite)
             .strip()
