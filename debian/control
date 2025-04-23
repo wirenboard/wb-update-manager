@@ -1,18 +1,19 @@
 Source: wb-update-manager
 Section: admin
 Priority: optional
-Maintainer: Nikita Maslov <nikita.maslov@wirenboard.com>
+Maintainer: Wiren Board team <info@wirenboard.com>
 Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools, pkg-config,
                python3-pytest, python3-tomli, python3-pytest-mock, python3-systemd
 Standards-Version: 4.5.0
 Homepage: https://github.com/wirenboard/wb-update-manager
-X-Python3-Version: >= 3.5
+X-Python3-Version: >= 3.9
 
 Package: python3-wb-update-manager
 Section: python
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}, python3-systemd, wb-release-info
 Description: Wirenboard software updates and release management tool - python3 library
+ The package includes utility functions for wb-update-manager.
 
 Package: wb-update-manager
 Architecture: all
