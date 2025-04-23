@@ -4,7 +4,7 @@ set -e
 
 #DEBHELPER#
 
-rm -rf /etc/update-motd.d/99-wb-bullseye-available
+rm -rf /etc/update-motd.d/99-wb-trixie-available
 
 # Allow installing armhf packages on arm64 systems
 if [[ $(dpkg --print-architecture) = "arm64" ]]; then

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -e /var/lib/wirenboard/disable-trixie-tips ]; then
+    exit 0
+fi
+
+/usr/lib/wb-update-manager/trixie-update-tips 2>/dev/null || exit 0

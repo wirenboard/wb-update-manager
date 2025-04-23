@@ -1,4 +1,4 @@
 bin/wb-release /usr/bin
-bin/98-wb-bullseye-update-tips /etc/update-motd.d
-bin/bullseye-update-tips /usr/lib/wb-update-manager/
-bin/bullseye-tips.d/ /usr/lib/wb-update-manager/
+bin/98-wb-trixie-update-tips /etc/update-motd.d
+bin/trixie-update-tips /usr/lib/wb-update-manager/
+bin/trixie-tips.d/ /usr/lib/wb-update-manager/
