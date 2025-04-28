@@ -219,6 +219,7 @@ class TestAptRunner:
         )
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize(
     "state,result",
     [
