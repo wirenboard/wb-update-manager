@@ -1,6 +1,6 @@
 wb-update-manager (1.3.7) stable; urgency=medium
 
-  * Enable angry pylint/ No functional changes 
+  * Enable angry pylint. No functional changes 
 
  -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Mon, 26 May 2025 14:15:04 +0300
 
