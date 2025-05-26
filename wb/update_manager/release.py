@@ -342,7 +342,7 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
 
 
 def release_exists(state: SystemState):
-    full_url = make_full_repo_url(state) + "/dists/{}/Release".format(state.suite)
+    full_url = make_full_repo_url(state) + f"/dists/{state.suite}/Release"
     logger.info("Accessing %s...", full_url)
 
     try:
@@ -353,8 +353,7 @@ def release_exists(state: SystemState):
             logger.info("Response code %d", e.code)
             return False
         raise
-    else:
-        return True
+    return True
 
 
 def update_system(
@@ -374,7 +373,7 @@ def update_system(
     except subprocess.CalledProcessError as e:
         logger.error("\nThe subprocess %s has failed with status %d", e.cmd, e.returncode)
         return e.returncode
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         logger.exception("Something went wrong, check output and try again")
         return RETCODE_FAULT
     finally:
@@ -388,9 +387,9 @@ def print_banner():
     print("Wirenboard release {release_name} (as {suite}), target {target}".format(**info._asdict()))
 
     if info.repo_prefix:
-        print("This is a DEVELOPMENT release ({}), don't use in production!".format(info.repo_prefix))
+        print(f"This is a DEVELOPMENT release ({info.repo_prefix}), don't use in production!")
 
-    print("\nYou can get this info in scripts from {}.".format(WB_RELEASE_FILENAME))
+    print(f"\nYou can get this info in scripts from {WB_RELEASE_FILENAME}.")
 
 
 def run_apt(*cmd, assume_yes=False):
@@ -410,7 +409,7 @@ def run_apt(*cmd, assume_yes=False):
         args += ["--yes"]
 
     try:
-        run_cmd(*args, env=env, log_suffix="apt.{}".format(cmd[0]))
+        run_cmd(*args, env=env, log_suffix=f"apt.{cmd[0]}")
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             raise UserAbortException() from e
