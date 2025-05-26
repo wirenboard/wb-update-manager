@@ -1,3 +1,4 @@
+# pylint: disable=no-member, duplicate-code
 import argparse
 import contextlib
 import io
@@ -137,8 +138,10 @@ class TestTargetStateGenerator:
 
 class TestReleaseExistsChecker:
     def patch(self, mocker, side_effect=None):
-        self.state = release.SystemState("testing", "wb6/stretch", "my/prefix", True)
-        self.url = "http://deb.wirenboard.com/my/prefix/wb6/stretch/dists/testing/Release"
+        self.state = release.SystemState(  # pylint: disable=attribute-defined-outside-init
+            "testing", "wb6/stretch", "my/prefix", True
+        )
+        self.url = "http://deb.wirenboard.com/my/prefix/wb6/stretch/dists/testing/Release"  # pylint: disable=attribute-defined-outside-init
 
         ret = nullcontext(SimpleNamespace(getcode=lambda: 200))
         mocker.patch.object(urllib.request, "urlopen", side_effect=side_effect, return_value=ret)
@@ -168,12 +171,14 @@ class TestReleaseExistsChecker:
 
 class TestAptRunner:
     def patch(self, mocker, side_effect=None):
-        self.env = {"ENV1": "hello"}
+        self.env = {"ENV1": "hello"}  # pylint: disable=attribute-defined-outside-init
 
-        self.expected_env = self.env
-        self.expected_env["DEBIAN_FRONTEND"] = "noninteractive"
+        self.expected_env = self.env  # pylint: disable=attribute-defined-outside-init
+        self.expected_env["DEBIAN_FRONTEND"] = (  # pylint: disable=attribute-defined-outside-init
+            "noninteractive"
+        )
 
-        self.expected_args = [
+        self.expected_args = [  # pylint: disable=attribute-defined-outside-init
             "-o",
             "Dpkg::Options::=--force-confdef",
             "-o",
@@ -447,7 +452,7 @@ class TestRoute:
 
 class TestArgParser:
     def patch(self, mocker, return_value=release.RETCODE_OK):
-        self.log_filename = None
+        self.log_filename = None  # pylint: disable=attribute-defined-outside-init
 
         args = {
             "regenerate": False,
@@ -461,7 +466,7 @@ class TestArgParser:
             "second_stage": False,
             "no_journald_log": False,
         }
-        self.default_args = argparse.Namespace(**args)
+        self.default_args = argparse.Namespace(**args)  # pylint: disable=attribute-defined-outside-init
         mocker.patch.object(release, "route", return_value=return_value)
 
     def test_no_args(self, mocker):
@@ -484,9 +489,12 @@ class TestArgParser:
 
 class TestUpdate:
     def patch(self, mocker, raise_exc=None, return_value=release.RETCODE_OK):
-        self.old_state = release.SystemState("testing", "wb6/stretch", "", True)
-        self.new_state = release.SystemState("stable", "wb6/stretch", "", True)
-
+        self.old_state = release.SystemState(  # pylint: disable=attribute-defined-outside-init
+            "testing", "wb6/stretch", "", True
+        )
+        self.new_state = release.SystemState(  # pylint: disable=attribute-defined-outside-init
+            "stable", "wb6/stretch", "", True
+        )
         mocker.patch.object(release, "update_first_stage", return_value=return_value, side_effect=raise_exc)
         mocker.patch.object(release, "update_second_stage", return_value=return_value, side_effect=raise_exc)
 
@@ -521,8 +529,8 @@ class TestUpdate:
             release.update_second_stage.assert_not_called()
 
 
-class TestUpdateStageBase:
-    def patch(self, mocker, argv=None, confirm=True):
+class TestUpdateStageBase:  # pylint: disable=too-few-public-methods
+    def patch(self, mocker, argv=None, confirm=True):  # pylint: disable=unused-argument
         side_effect = None if confirm else release.UserAbortException
         mocker.patch.object(release, "user_confirm", side_effect=side_effect)
         mocker.patch.object(release, "run_system_update")
@@ -575,8 +583,12 @@ class TestUpdateSecondStage(TestUpdateStageBase):
     def patch(self, mocker, argv=None, confirm=True):
         super().patch(mocker, confirm=confirm)
 
-        self.old_state = release.SystemState("testing", "wb6/stretch", "", True)
-        self.new_state = release.SystemState("stable", "wb6/stretch", "", True)
+        self.old_state = release.SystemState(  # pylint: disable=attribute-defined-outside-init
+            "testing", "wb6/stretch", "", True
+        )
+        self.new_state = release.SystemState(  # pylint: disable=attribute-defined-outside-init
+            "stable", "wb6/stretch", "", True
+        )
 
         mocker.patch.object(release, "generate_system_config")
         mocker.patch.object(release, "generate_tmp_apt_preferences")

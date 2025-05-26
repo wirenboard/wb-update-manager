@@ -6,6 +6,7 @@ __pycache__
 *.deb
 .pybuild/
 .coverage
+.venv
 htmlcov/
 
 **/debian/*.debhelper
