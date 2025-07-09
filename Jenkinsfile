@@ -2,4 +2,5 @@ buildDebArchAll defaultRunPythonChecks: true,
                 defaultRunLintian: true,
                 defaultRunCoverage: true,
                 defaultAngryPylint: true,
-                defaultCoverageMin: "88"
+                defaultCoverageMin: "90",
+                defaultDoCoverallsReporting: true
