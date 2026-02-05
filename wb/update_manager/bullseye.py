@@ -8,8 +8,8 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from .common import (
-    LOG_FILENAME_ARGNAME,
     CONFIRM_STEPS_ARGNAME,
+    LOG_FILENAME_ARGNAME,
     NO_PRELIMINARY_UPDATE_ARGNAME,
     RETCODE_FAULT,
     RETCODE_NO_TARGET,

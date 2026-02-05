@@ -502,6 +502,7 @@ class TestUpdate:
         )
         mocker.patch.object(release, "update_first_stage", return_value=return_value, side_effect=raise_exc)
         mocker.patch.object(release, "update_second_stage", return_value=return_value, side_effect=raise_exc)
+
     def test_first_stage(self, mocker):
         self.patch(mocker)
 
