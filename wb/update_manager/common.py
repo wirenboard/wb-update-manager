@@ -82,8 +82,7 @@ def user_confirm(text=None, assume_yes=False):
             continue
         if result[0] == "y":
             return
-        else:
-            raise UserAbortException
+        raise UserAbortException
 
 
 def make_full_repo_url(state: SystemState, base_url=DEFAULT_REPO_URL):
@@ -93,20 +92,18 @@ def make_full_repo_url(state: SystemState, base_url=DEFAULT_REPO_URL):
 
 
 def release_exists(state: SystemState):
-    full_url = make_full_repo_url(state) + "/dists/{}/Release".format(state.suite)
-    logger.info("Accessing {}...".format(full_url))
+    full_url = make_full_repo_url(state) + f"/dists/{state.suite}/Release"
+    logger.info("Accessing %s...", full_url)
 
     try:
-        resp = urllib.request.urlopen(full_url, timeout=10.0)
-        logger.info("Response code {}".format(resp.getcode()))
+        with urllib.request.urlopen(full_url, timeout=10.0) as resp:
+            logger.info("Response code %d", resp.getcode())
     except HTTPError as e:
         if e.code >= 400 and e.code < 500:
-            logger.info("Response code {}".format(e.code))
+            logger.info("Response code %d", e.code)
             return False
-        else:
-            raise
-    else:
-        return True
+        raise
+    return True
 
 
 def run_apt(*cmd, assume_yes=False):
@@ -126,20 +123,19 @@ def run_apt(*cmd, assume_yes=False):
         args += ["--yes"]
 
     try:
-        run_cmd(*args, env=env, log_suffix="apt.{}".format(cmd[0]))
+        run_cmd(*args, env=env, log_suffix=f"apt.{cmd[0]}")
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
-            raise UserAbortException()
-        else:
-            raise
+            raise UserAbortException() from e
+        raise
 
 
 def run_cmd(*args, env=None, log_suffix=None):
     if not log_suffix:
         log_suffix = args[0]
 
-    logger.debug('Starting cmd: "{}"'.format(" ".join(list(args))))
-    logger.debug('Environment: "{}"'.format(env))
+    logger.debug('Starting cmd: "%s"', " ".join(list(args)))
+    logger.debug('Environment: "%s"', env)
 
     proc_logger = logger.getChild(log_suffix)
 
@@ -167,7 +163,7 @@ def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filenam
     suite = state.suite
     full_repo_url = make_full_repo_url(state, base_url)
 
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
@@ -186,7 +182,7 @@ def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filenam
 def generate_release_apt_preferences(
     state: SystemState, origin=WB_ORIGIN, filename=WB_RELEASE_APT_PREFERENCES_FILENAME
 ):
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
@@ -205,10 +201,10 @@ def generate_release_apt_preferences(
 
 
 def generate_system_config(state):
-    logger.info("Generating {} for {}".format(WB_SOURCES_LIST_FILENAME, state))
+    logger.info("Generating %s for %s", WB_SOURCES_LIST_FILENAME, state)
     generate_sources_list(state, filename=WB_SOURCES_LIST_FILENAME)
 
-    logger.info("Generating {} for {}".format(WB_RELEASE_APT_PREFERENCES_FILENAME, state))
+    logger.info("Generating %s for %s", WB_RELEASE_APT_PREFERENCES_FILENAME, state)
     generate_release_apt_preferences(state, filename=WB_RELEASE_APT_PREFERENCES_FILENAME)
 
 

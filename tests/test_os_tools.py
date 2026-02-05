@@ -83,7 +83,7 @@ def test_temp_apt_configs_clean_cache_on_error():
 
         with pytest.raises(Exception):
             with bullseye.make_temp_apt_configs():
-                raise Exception()
+                raise Exception()  # pylint: disable=broad-exception-raised
 
         my_create.assert_called_once()
         my_remove.assert_called_once()

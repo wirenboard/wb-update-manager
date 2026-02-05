@@ -3,7 +3,6 @@ This package contains the library to manage with Wirenboard release data on boar
 and provides the main for the wb-release tool which switches release branches.
 """
 
-import re
 import argparse
 import atexit
 import logging
@@ -11,7 +10,6 @@ import os
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 from systemd import journal
 
@@ -82,6 +80,7 @@ class NoSuiteInfoError(Exception):
 
 class ImpossibleUpdateError(Exception):
     pass
+
 
 def read_wb_release_file(filename):
     ret = {}
@@ -313,7 +312,7 @@ def run_system_update(assume_yes=False):
     run_apt("dist-upgrade", assume_yes=True)
 
 
-def route(args, argv):
+def route(args, argv):  # pylint: disable=too-many-return-statements
     if len(argv[1:]) == 0 or args.version:
         print_banner()
         return RETCODE_OK

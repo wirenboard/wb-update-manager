@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 import os
 import shutil
 import subprocess
@@ -7,6 +8,7 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 from .common import (
+    LOG_FILENAME_ARGNAME,
     CONFIRM_STEPS_ARGNAME,
     NO_PRELIMINARY_UPDATE_ARGNAME,
     RETCODE_FAULT,
@@ -300,13 +302,13 @@ def apply_new_system_config(current_state, new_state):
         logger.info("Cleaning up apt cache (to make manual apt calls safe from now)")
         _cleanup_apt_cached_lists()
         raise
-    else:
-        logger.debug("new system config has done well, keeping this config and apt cache")
+
+    logger.debug("new system config has done well, keeping this config and apt cache")
 
 
 def make_new_state(state: SystemState) -> SystemState:
     controller_version = state.target.split("/", maxsplit=1)[0]
-    return state._replace(target=(controller_version + "/bullseye"))
+    return state._replace(target=controller_version + "/bullseye")
 
 
 def set_global_progress_flag(value: str):

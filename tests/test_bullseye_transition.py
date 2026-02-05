@@ -1,5 +1,4 @@
 import functools
-import logging
 from contextlib import ExitStack
 from unittest.mock import MagicMock, call, patch
 
@@ -93,7 +92,7 @@ def test_selftest_patcher(**_):
 
 @functools.cache
 @patch_all_systemish
-def num_ususal_run_cmd_calls(run_cmd_mock=None, **kwargs):
+def num_ususal_run_cmd_calls(run_cmd_mock=None, **_kwargs):
     run_usual_upgrade()
     return len(run_cmd_mock.mock_calls)
 
@@ -211,7 +210,7 @@ def test_apply_system_config_with_error(
 ):
     with pytest.raises(Exception):
         with bullseye.apply_new_system_config(STATE_STRETCH, STATE_BULLSEYE):
-            raise Exception()
+            raise Exception()  # pylint: disable=broad-exception-raised
 
     generate_system_config_mock.assert_has_calls(
         [
