@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade1) stable; urgency=medium
+
+  * Rebase bullseye-upgrade branch 
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 07 May 2026 14:07:16 +0300
+
 wb-update-manager (1.4.0) stable; urgency=medium
 
   * Remove python3-wb-update-manager deb package, no functional changes

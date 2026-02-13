@@ -3,6 +3,7 @@ import argparse
 import contextlib
 import io
 import os
+import pathlib
 import subprocess
 import tempfile
 import urllib.request
@@ -11,7 +12,7 @@ from urllib.error import HTTPError
 
 import pytest
 
-from wb.update_manager import release
+from wb.update_manager import common, release
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), "data")
 
@@ -186,13 +187,13 @@ class TestAptRunner:
             "--allow-downgrades",
         ]
 
-        mocker.patch.object(release, "run_cmd", side_effect=side_effect)
+        mocker.patch.object(common, "run_cmd", side_effect=side_effect)
         mocker.patch("os.environ.copy", return_value=self.env)
 
     def test_no_assume_yes(self, mocker):
         self.patch(mocker)
         release.run_apt("update", assume_yes=False)
-        release.run_cmd.assert_called_once_with(
+        common.run_cmd.assert_called_once_with(
             "apt-get", "-q", "update", *self.expected_args, env=self.expected_env, log_suffix="apt.update"
         )
 
@@ -203,13 +204,13 @@ class TestAptRunner:
         argv = ["apt-get", "-q", "update"] + self.expected_args + ["--yes"]
         env = self.env
 
-        release.run_cmd.assert_called_once_with(*argv, env=env, log_suffix="apt.update")
+        common.run_cmd.assert_called_once_with(*argv, env=env, log_suffix="apt.update")
 
     def test_user_abort(self, mocker):
         self.patch(mocker, side_effect=subprocess.CalledProcessError(1, cmd="apt-get"))
         with pytest.raises(release.UserAbortException):
             release.run_apt("update")
-        release.run_cmd.assert_called_once_with(
+        common.run_cmd.assert_called_once_with(
             "apt-get", "-q", "update", *self.expected_args, env=self.expected_env, log_suffix="apt.update"
         )
 
@@ -219,7 +220,7 @@ class TestAptRunner:
         with pytest.raises(subprocess.CalledProcessError) as exc_info:
             release.run_apt("update")
             assert exc_info.value == exc
-        release.run_cmd.assert_called_once_with(
+        common.run_cmd.assert_called_once_with(
             "apt-get", "-q", "update", *self.expected_args, env=self.expected_env, log_suffix="apt.update"
         )
 
@@ -240,7 +241,7 @@ class TestAptRunner:
 )
 def test_sources_list_generator(state, result):
     with tempfile.NamedTemporaryFile() as f:
-        release.generate_sources_list(state, filename=f.name)
+        common.generate_sources_list(state, filename=f.name)
         assert read_file_ignore_comments(f.name) == result
 
 
@@ -259,7 +260,7 @@ def test_sources_list_generator(state, result):
 )
 def test_release_apt_preferences_generator(state, result):
     with tempfile.NamedTemporaryFile() as f:
-        release.generate_release_apt_preferences(state, filename=f.name)
+        common.generate_release_apt_preferences(state, filename=f.name)
         assert read_file_ignore_comments(f.name) == result
 
 
@@ -286,15 +287,15 @@ def test_tmp_apt_preferences_generator(state, result):
 
 
 def test_generate_system_config(mocker):
-    mocker.patch.object(release, "generate_sources_list")
-    mocker.patch.object(release, "generate_release_apt_preferences")
+    mocker.patch.object(common, "generate_sources_list")
+    mocker.patch.object(common, "generate_release_apt_preferences")
     state = release.SystemState("testing", "wb6/stretch", "my/prefix", True)
 
-    release.generate_system_config(state)
+    common.generate_system_config(state)
 
-    release.generate_sources_list.assert_called_once_with(state, filename=release.WB_SOURCES_LIST_FILENAME)
-    release.generate_release_apt_preferences.assert_called_once_with(
-        state, filename=release.WB_RELEASE_APT_PREFERENCES_FILENAME
+    common.generate_sources_list.assert_called_once_with(state, filename=common.WB_SOURCES_LIST_FILENAME)
+    common.generate_release_apt_preferences.assert_called_once_with(
+        state, filename=common.WB_RELEASE_APT_PREFERENCES_FILENAME
     )
 
 
@@ -366,6 +367,8 @@ class TestRoute:
             "second_stage": False,
             "log_filename": None,
             "no_journald_log": False,
+            "update_debian_release": False,
+            "confirm_steps": False,
         }
         new_kwargs.update(**kwargs)
         return argparse.Namespace(**new_kwargs)
@@ -465,6 +468,8 @@ class TestArgParser:
             "prefix": None,
             "second_stage": False,
             "no_journald_log": False,
+            "update_debian_release": False,
+            "confirm_steps": False,
         }
         self.default_args = argparse.Namespace(**args)  # pylint: disable=attribute-defined-outside-init
         mocker.patch.object(release, "route", return_value=return_value)
@@ -546,6 +551,7 @@ class TestUpdateFirstStage(TestUpdateStageBase):
 
         mocker.patch("sys.argv", argv)
         mocker.patch("subprocess.run")
+        mocker.patch.object(pathlib.Path, "touch")  # avoid touching actual flag in /run
 
     def test_no_confirm(self, mocker):
         self.patch(mocker, confirm=False)
