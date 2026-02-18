@@ -26,7 +26,6 @@ def patch_all_systemish(func):
                 (bullseye, "remove_temp_apt_configs"),
                 (bullseye, "create_temp_apt_policy_for_tool"),
                 (bullseye, "remove_temp_apt_policy_for_tool"),
-                (bullseye, "touch_tool_update_done_flag"),
                 (bullseye, "touch_system_update_done_flag"),
                 (bullseye, "upgrade_and_maybe_switch_tool"),
                 (bullseye, "set_global_progress_flag"),
