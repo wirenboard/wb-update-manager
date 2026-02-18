@@ -27,10 +27,10 @@ from .common import (
 )
 from .tools import (
     apt_autoremove,
+    apt_clean,
     apt_install,
     apt_mark_hold,
     apt_mark_unhold,
-    apt_clean,
     apt_update,
     apt_upgrade,
     dpkg_reconfigure,
@@ -235,8 +235,10 @@ def main_upgrade(assume_yes):
         logger.info("Performing actual upgrade")
 
         # There is "Breaks" collision in trixie upgrade which we cannot resolve,
-        # so I applied this ugly patch. Old nm breaks new ppp, so when we try to install new ppp or nm, apt-get dies.
-        # Even though new nm wants new ppp in "Breaks", first apt-get run looks only in old nm "Breaks" section.
+        # so I applied this ugly patch. Old nm breaks new ppp, so when we try to
+        # install new ppp or nm, apt-get dies.
+        # Even though new nm wants new ppp in "Breaks", first apt-get run looks
+        # only in old nm "Breaks" section.
         try:
             apt_upgrade(dist=True, assume_yes=True)  # this step is confirmed in simulating above
         except subprocess.CalledProcessError as e:
