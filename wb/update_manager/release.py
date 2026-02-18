@@ -13,7 +13,7 @@ import textwrap
 
 from systemd import journal
 
-from .bullseye import upgrade_new_debian_release
+from .release_upgrade import upgrade_new_debian_release
 from .common import (
     CONFIRM_STEPS_ARGNAME,
     LOG_FILENAME_ARGNAME,

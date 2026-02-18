@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from wb.update_manager import bullseye, common, tools
+from wb.update_manager import common, release_upgrade, tools
 
 STATE_STRETCH = common.SystemState("testing", "wb7/stretch", "", True)
 STATE_BULLSEYE = common.SystemState("testing", "wb7/bullseye", "", True)
@@ -17,21 +17,21 @@ def patch_all_systemish(func):
             functions = (
                 (tools, "run_cmd"),
                 (common, "run_cmd"),
-                (bullseye, "run_cmd"),
-                (bullseye, "generate_system_config"),
+                (release_upgrade, "run_cmd"),
+                (release_upgrade, "generate_system_config"),
                 (common, "generate_sources_list"),
                 (common, "generate_release_apt_preferences"),
-                (bullseye, "_cleanup_apt_cached_lists"),
-                (bullseye, "create_temp_apt_configs"),
-                (bullseye, "remove_temp_apt_configs"),
-                (bullseye, "create_temp_apt_policy_for_tool"),
-                (bullseye, "remove_temp_apt_policy_for_tool"),
-                (bullseye, "touch_system_update_done_flag"),
-                (bullseye, "upgrade_and_maybe_switch_tool"),
-                (bullseye, "set_global_progress_flag"),
-                (bullseye, "install_progress_banner"),
-                (bullseye, "release_exists"),
-                (bullseye, "enough_free_space"),
+                (release_upgrade, "_cleanup_apt_cached_lists"),
+                (release_upgrade, "create_temp_apt_configs"),
+                (release_upgrade, "remove_temp_apt_configs"),
+                (release_upgrade, "create_temp_apt_policy_for_tool"),
+                (release_upgrade, "remove_temp_apt_policy_for_tool"),
+                (release_upgrade, "touch_system_update_done_flag"),
+                (release_upgrade, "upgrade_and_maybe_switch_tool"),
+                (release_upgrade, "set_global_progress_flag"),
+                (release_upgrade, "install_progress_banner"),
+                (release_upgrade, "release_exists"),
+                (release_upgrade, "enough_free_space"),
             )
             for obj, function in functions:
                 mock_name = function + "_mock"
@@ -49,7 +49,7 @@ def patch_all_systemish(func):
 
 
 def run_usual_upgrade(log_filename=None, assume_yes=True, no_preliminary_update=True, confirm_steps=False):
-    return bullseye.upgrade_new_debian_release(
+    return release_upgrade.upgrade_new_debian_release(
         STATE_STRETCH,
         log_filename=log_filename,
         assume_yes=assume_yes,
@@ -104,7 +104,7 @@ def test_packages_always_become_unhold(successful_cmds, run_cmd_mock=None, **_):
     run_cmd_mock.side_effect = fail_on_nth_call(successful_cmds)
 
     with patch.multiple(
-        "wb.update_manager.bullseye", apt_mark_hold=collector.adder, apt_mark_unhold=collector.remover
+        "wb.update_manager.release_upgrade", apt_mark_hold=collector.adder, apt_mark_unhold=collector.remover
     ):
         run_usual_upgrade()
 
@@ -119,7 +119,7 @@ def test_services_always_become_unmasked(successful_cmds, run_cmd_mock=None, **_
     run_cmd_mock.side_effect = fail_on_nth_call(successful_cmds)
 
     with patch.multiple(
-        "wb.update_manager.bullseye", systemd_mask=collector.adder, systemd_unmask=collector.remover
+        "wb.update_manager.release_upgrade", systemd_mask=collector.adder, systemd_unmask=collector.remover
     ):
         run_usual_upgrade()
 
@@ -196,7 +196,7 @@ def test_no_release_exist(release_exists_mock=None, run_cmd_mock=None, **_):
 def test_apply_system_config_without_error(
     generate_system_config_mock=None, _cleanup_apt_cached_lists_mock=None, **_
 ):
-    with bullseye.apply_new_system_config(STATE_STRETCH, STATE_BULLSEYE):
+    with release_upgrade.apply_new_system_config(STATE_STRETCH, STATE_BULLSEYE):
         pass
 
     generate_system_config_mock.assert_called_once_with(STATE_BULLSEYE)
@@ -208,7 +208,7 @@ def test_apply_system_config_with_error(
     generate_system_config_mock=None, _cleanup_apt_cached_lists_mock=None, **_
 ):
     with pytest.raises(Exception):
-        with bullseye.apply_new_system_config(STATE_STRETCH, STATE_BULLSEYE):
+        with release_upgrade.apply_new_system_config(STATE_STRETCH, STATE_BULLSEYE):
             raise Exception()  # pylint: disable=broad-exception-raised
 
     generate_system_config_mock.assert_has_calls(
@@ -223,7 +223,7 @@ def test_apply_system_config_with_error(
 @patch_all_systemish
 def test_wb_configs_reconfigured_after_purge_of_stretch(**_):
     dpkg_reconfigure_mock = MagicMock()
-    with patch.multiple("wb.update_manager.bullseye", dpkg_reconfigure=dpkg_reconfigure_mock):
+    with patch.multiple("wb.update_manager.release_upgrade", dpkg_reconfigure=dpkg_reconfigure_mock):
         run_usual_upgrade()
 
     dpkg_reconfigure_mock.assert_called_once_with("wb-configs")

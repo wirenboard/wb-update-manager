@@ -4,7 +4,7 @@ from unittest.mock import call, mock_open, patch
 
 import pytest
 
-from wb.update_manager import bullseye
+from wb.update_manager import release_upgrade
 
 FakeStatvfs = namedtuple("FakeStatvfs", "f_bavail f_bsize")
 
@@ -17,7 +17,7 @@ def test_enough_free_space_check():
     with patch("os.statvfs") as statvfs_mock:
         statvfs_mock.side_effect = (vfs_megabytes(1024), vfs_megabytes(1024))
 
-        assert bullseye.enough_free_space()
+        assert release_upgrade.enough_free_space()
         statvfs_mock.assert_has_calls(
             [
                 call("/var/cache/apt/archives"),
@@ -29,15 +29,15 @@ def test_enough_free_space_check():
 def test_no_free_space_check():
     with patch("os.statvfs") as statvfs_mock:
         statvfs_mock.side_effect = (vfs_megabytes(10), vfs_megabytes(1024))
-        assert not bullseye.enough_free_space()
+        assert not release_upgrade.enough_free_space()
 
         statvfs_mock.reset_mock()
         statvfs_mock.side_effect = (vfs_megabytes(1024), vfs_megabytes(10))
-        assert not bullseye.enough_free_space()
+        assert not release_upgrade.enough_free_space()
 
         statvfs_mock.reset_mock()
         statvfs_mock.side_effect = (vfs_megabytes(10), vfs_megabytes(10))
-        assert not bullseye.enough_free_space()
+        assert not release_upgrade.enough_free_space()
 
 
 def test_temp_apt_policy_for_tool_cleanup():
@@ -45,7 +45,7 @@ def test_temp_apt_policy_for_tool_cleanup():
         my_open = patches.enter_context(patch("builtins.open", new=mock_open()))
         my_remove = patches.enter_context(patch("os.remove"))
 
-        with bullseye.temp_apt_policy_for_tool():
+        with release_upgrade.temp_apt_policy_for_tool():
             my_open.assert_called_once()
             my_open().write.assert_called()
 
@@ -57,9 +57,9 @@ def test_temp_apt_configs_cleanup():
     with ExitStack() as patches:
         my_open = patches.enter_context(patch("builtins.open", new=mock_open()))
         my_remove = patches.enter_context(patch("os.remove"))
-        my_cleanup = patches.enter_context(patch.object(bullseye, "_cleanup_apt_cached_lists"))
+        my_cleanup = patches.enter_context(patch.object(release_upgrade, "_cleanup_apt_cached_lists"))
 
-        with bullseye.make_temp_apt_configs():
+        with release_upgrade.make_temp_apt_configs():
             my_open.assert_called()
             my_open().write.assert_called()
 
@@ -77,12 +77,12 @@ def test_temp_apt_configs_cleanup():
 
 def test_temp_apt_configs_clean_cache_on_error():
     with ExitStack() as patches:
-        my_create = patches.enter_context(patch.object(bullseye, "create_temp_apt_configs"))
-        my_remove = patches.enter_context(patch.object(bullseye, "remove_temp_apt_configs"))
-        my_cleanup = patches.enter_context(patch.object(bullseye, "_cleanup_apt_cached_lists"))
+        my_create = patches.enter_context(patch.object(release_upgrade, "create_temp_apt_configs"))
+        my_remove = patches.enter_context(patch.object(release_upgrade, "remove_temp_apt_configs"))
+        my_cleanup = patches.enter_context(patch.object(release_upgrade, "_cleanup_apt_cached_lists"))
 
         with pytest.raises(Exception):
-            with bullseye.make_temp_apt_configs():
+            with release_upgrade.make_temp_apt_configs():
                 raise Exception()  # pylint: disable=broad-exception-raised
 
         my_create.assert_called_once()
