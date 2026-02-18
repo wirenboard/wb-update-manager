@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade2) stable; urgency=medium
+
+  * Add rtixie upgrade features
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 07 May 2026 14:15:28 +0300
+
 wb-update-manager (1.4.0-upgrade1) stable; urgency=medium
 
   * Rebase bullseye-upgrade branch 
