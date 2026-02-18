@@ -22,6 +22,7 @@ def apt_upgrade(dist=True, assume_yes=False):
     cmd = "dist-upgrade" if dist else "upgrade"
     run_apt(cmd, assume_yes=assume_yes)
 
+
 def apt_clean():
     run_apt("clean")
 
