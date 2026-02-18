@@ -446,7 +446,7 @@ def main(argv=None):
         UPDATE_DEBIAN_RELEASE_ARGNAME,
         dest="update_debian_release",
         action="store_true",
-        help="update Debian release to bullseye",
+        help="update Debian release to trixie",
     )
     parser.add_argument(
         CONFIRM_STEPS_ARGNAME,

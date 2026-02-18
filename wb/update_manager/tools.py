@@ -13,13 +13,17 @@ def apt_purge(*packages, assume_yes=False):
     run_apt("purge", *packages, assume_yes=assume_yes)
 
 
-def apt_install(*packages, assume_yes=False):
-    run_apt("install", *packages, assume_yes=assume_yes)
+def apt_install(*packages, assume_yes=False, fix_broken=False):
+    cmd = ("-f", "install") if fix_broken else ("install",)
+    run_apt(*cmd, *packages, assume_yes=assume_yes)
 
 
 def apt_upgrade(dist=True, assume_yes=False):
     cmd = "dist-upgrade" if dist else "upgrade"
     run_apt(cmd, assume_yes=assume_yes)
+
+def apt_clean():
+    run_apt("clean")
 
 
 def apt_mark_hold(*packages):

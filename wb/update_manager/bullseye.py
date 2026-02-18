@@ -30,7 +30,7 @@ from .tools import (
     apt_install,
     apt_mark_hold,
     apt_mark_unhold,
-    apt_purge,
+    apt_clean,
     apt_update,
     apt_upgrade,
     dpkg_reconfigure,
@@ -47,12 +47,16 @@ def _free_space_mb(path):
 
 
 def enough_free_space():
+    # bullseye upgrade notes
     # these values were checked using binary search on configuration with all standard software
     # with different volumes on / and /var (not fully correct, but still representative).
     # minimal working solution was 125 MB for root and 300 MB for /var.
     # I add a little bit of extra requirement on root to be on a safe side.
-    min_cache_free_space_mb = 300
-    min_system_free_space_mb = 150
+
+    # trixie upgrade notes: cache 300=>600, root 150=>410
+
+    min_cache_free_space_mb = 600
+    min_system_free_space_mb = 410
 
     if _free_space_mb("/var/cache/apt/archives") < min_cache_free_space_mb:
         logger.error("Need at least %d MB of free space for apt cache (/mnt/data)", min_cache_free_space_mb)
@@ -65,28 +69,28 @@ def enough_free_space():
     return True
 
 
-TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-stretch"
+TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-trixie"
 
 
 def create_temp_apt_policy_for_tool():
-    logger.info("Creating temp apt preference to keep wb-update-manager from stretch")
+    logger.info("Creating temp apt preference to keep wb-update-manager from trixie")
     with open(TEMP_APT_PREFERENCE_FOR_TOOL, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
                 Package: *wb-update-manager
-                Pin: release o=wirenboard,l=*stretch*
+                Pin: release o=wirenboard,l=*bullseye*
                 Pin-Priority: 800
 
                 Package: *wb-update-manager
-                Pin: release o=wirenboard,l=*bullseye*
+                Pin: release o=wirenboard,l=*trixie*
                 Pin-Priority: 10"""
             ).strip()
         )
 
 
 def remove_temp_apt_policy_for_tool():
-    logger.info("Removing temp apt preference to keep wb-update-manager from stretch")
+    logger.info("Removing temp apt preference to keep wb-update-manager from trixie")
     os.remove(TEMP_APT_PREFERENCE_FOR_TOOL)
 
 
@@ -97,10 +101,6 @@ def temp_apt_policy_for_tool():
         yield
     finally:
         remove_temp_apt_policy_for_tool()
-
-
-def touch_tool_update_done_flag():
-    Path("/run/wb-release-tool-updated").touch()
 
 
 def upgrade_and_maybe_switch_tool(assume_yes, log_filename=None):
@@ -116,9 +116,6 @@ def upgrade_and_maybe_switch_tool(assume_yes, log_filename=None):
         ).strip(),
         assume_yes,
     )
-
-    # create flag which allows wb-update-manager to finish upgrade
-    touch_tool_update_done_flag()
 
     with temp_apt_policy_for_tool():
         logger.info("Try to install new wb-update-manager version")
@@ -142,43 +139,48 @@ def upgrade_and_maybe_switch_tool(assume_yes, log_filename=None):
     return 1
 
 
-TEMP_UPGRADE_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-bullseye-upgrade.list"
-TEMP_UPGRADE_APT_PREFERENCES = "/etc/apt/preferences.d/000wb-bullseye-upgrade"
+TEMP_UPGRADE_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-trixie-upgrade.list"
+TEMP_UPGRADE_APT_PREFERENCES = "/etc/apt/preferences.d/000wb-trixie-upgrade"
+TEMP_UPGRADE_APT_CONFIG = "/etc/apt/apt.conf.d/000wb-trixie-upgrade"
 
 
 def create_temp_apt_configs():
-    logger.info("Creating temp sources list for Bullseye on %s", TEMP_UPGRADE_SOURCES_LIST)
+    logger.info("Creating temp sources list for Trixie on %s", TEMP_UPGRADE_SOURCES_LIST)
     with open(TEMP_UPGRADE_SOURCES_LIST, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
-                deb http://deb.debian.org/debian bullseye main
-                deb http://deb.debian.org/debian bullseye-updates main
-                deb http://deb.debian.org/debian bullseye-backports main
-                deb http://security.debian.org/debian-security bullseye-security main"""
+                deb http://deb.debian.org/debian trixie main
+                deb http://deb.debian.org/debian trixie-updates main
+                deb http://deb.debian.org/debian trixie-backports main
+                deb http://security.debian.org/debian-security trixie-security main"""
             ).strip()
         )
 
-    logger.info("Creating temp apt preferences for Bullseye on %s", TEMP_UPGRADE_APT_PREFERENCES)
+    logger.info("Creating temp apt preferences for Trixie on %s", TEMP_UPGRADE_APT_PREFERENCES)
     with open(TEMP_UPGRADE_APT_PREFERENCES, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
                 """
                 Package: *
-                Pin: release o=Debian,n=stretch*
+                Pin: release o=Debian,n=bullseye*
                 Pin-Priority: -1
 
                 Package: *
-                Pin: release o=Debian,n=bullseye*
+                Pin: release o=Debian,n=trixie*
                 Pin-Priority: 501"""  # this must be < 510 in order to install backports deps properly
             ).strip()
         )
 
+    with open(TEMP_UPGRADE_APT_CONFIG, "w", encoding="utf-8") as f:
+        f.write('APT::Key::gpgvcommand "/usr/bin/gpgv";')
+
 
 def remove_temp_apt_configs():
-    logger.info("Cleaning up temp apt configs for bullseye transition")
+    logger.info("Cleaning up temp apt configs for trixie transition")
     os.remove(TEMP_UPGRADE_SOURCES_LIST)
     os.remove(TEMP_UPGRADE_APT_PREFERENCES)
+    os.remove(TEMP_UPGRADE_APT_CONFIG)
 
 
 @contextmanager
@@ -215,27 +217,6 @@ def hold_packages(*packages):
         apt_mark_unhold(*packages)
 
 
-def ensure_new_openssh(assume_yes):
-    apt_update()
-    logger.info("Updating openssh-server first to make Wiren Board available during update")
-    with mask_services("ssh.service"):
-        apt_install("openssh-server", assume_yes=assume_yes)
-
-    logger.info("Restarting ssh.service to maintain connectivity")
-    systemd_restart("ssh.service")
-
-
-def ensure_python2_deps(assume_yes):
-    apt_update()
-    logger.info("Installing python-is-python2 for correct dependency resolving")
-    apt_install("python-is-python2", assume_yes=assume_yes)
-
-
-def mark_python2_for_cleanup():
-    logger.info("Mark python-is-python2 as automatically installed to remove it in future")
-    run_cmd("apt-mark", "auto", "python-is-python2")
-
-
 def main_upgrade(assume_yes):
     # these services will be masked (preventing restart during update)
     # and then enabled or restarted manually
@@ -252,7 +233,16 @@ def main_upgrade(assume_yes):
 
     with mask_services(*services_to_mask):
         logger.info("Performing actual upgrade")
-        apt_upgrade(dist=True, assume_yes=True)  # this step is confirmed in simulating above
+
+        # There is "Breaks" collision in trixie upgrade which we cannot resolve,
+        # so I applied this ugly patch. Old nm breaks new ppp, so when we try to install new ppp or nm, apt-get dies.
+        # Even though new nm wants new ppp in "Breaks", first apt-get run looks only in old nm "Breaks" section.
+        try:
+            apt_upgrade(dist=True, assume_yes=True)  # this step is confirmed in simulating above
+        except subprocess.CalledProcessError as e:
+            if e.returncode != 100:
+                raise
+            apt_install(assume_yes=True, fix_broken=True)
 
         logger.info("Performing actual upgrade - second stage (e2fsprogs update)")
         logger.debug("Updating packages list, may be outdated after long update procedure")
@@ -266,10 +256,7 @@ def main_upgrade(assume_yes):
     systemd_restart(*services_to_restart)
 
 
-def purge_old_wb_configs(assume_yes):
-    logger.info("Purging wb-configs-stretch to remove old sources.list")
-    apt_purge("wb-configs-stretch", assume_yes=assume_yes)
-
+def reconfigure_wb_configs():
     logger.info("Reconfiguring new wb-configs to enable its services back")
     dpkg_reconfigure("wb-configs")
 
@@ -306,9 +293,9 @@ def apply_new_system_config(current_state, new_state):
     logger.debug("new system config has done well, keeping this config and apt cache")
 
 
-def make_new_state(state: SystemState) -> SystemState:
+def make_trixie_target_state(state: SystemState) -> SystemState:
     controller_version = state.target.split("/", maxsplit=1)[0]
-    return state._replace(target=controller_version + "/bullseye")
+    return state._replace(target=controller_version + "/trixie")
 
 
 def set_global_progress_flag(value: str):
@@ -352,18 +339,15 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
         stack.enter_context(apply_new_system_config(current_state, new_state))
         stack.enter_context(make_temp_apt_configs())
         stack.enter_context(hold_packages("wb-update-manager", "wb-release-info"))
-
-        ensure_new_openssh(assume_yes)
-        ensure_python2_deps(assume_yes)
-
         main_upgrade(assume_yes)
 
-    mark_python2_for_cleanup()
-    purge_old_wb_configs(assume_yes)
+    reconfigure_wb_configs()
     apt_autoremove(assume_yes)
 
     update_release_info()
     update_tool_on_new_system(assume_yes)
+
+    apt_clean()
 
     touch_system_update_done_flag()
 
@@ -378,11 +362,11 @@ def upgrade_new_debian_release(
     try:
         if not no_preliminary_update:
             # this may break if apt failed during processes, so should be able to skip it somehow?
-            # or enforce tool installation from stretch inside
+            # or enforce tool installation from trixie inside
             upgrade_and_maybe_switch_tool(assume_yes, log_filename=log_filename)
             return 0  # should never be here
 
-        new_state = make_new_state(state)
+        new_state = make_trixie_target_state(state)
         if not release_exists(new_state):
             logger.error("Target state does not exist: %s", new_state)
             return RETCODE_NO_TARGET
@@ -390,7 +374,7 @@ def upgrade_new_debian_release(
         retcode = RETCODE_OK
         install_progress_banner()
 
-        print("============ Update debian release to bullseye ============")
+        print("============ Update debian release to trixie ============")
         set_global_progress_flag("progress")
 
         actual_upgrade(state, new_state, assume_yes=not confirm_steps)
