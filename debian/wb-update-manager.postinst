@@ -6,7 +6,7 @@ set -e
 
 rm -rf /etc/update-motd.d/99-wb-bullseye-available
 
-# Allow to install armhf packages on wb8
+# Allow installing armhf packages on arm64 systems
 if [[ $(dpkg --print-architecture) = "arm64" ]]; then
     dpkg --add-architecture armhf
 fi
