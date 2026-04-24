@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0) stable; urgency=medium
+
+  * Remove python3-wb-update-manager deb package, no functional changes
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 24 Apr 2026 10:40:00 +0400
+
 wb-update-manager (1.3.8) stable; urgency=medium
 
   * Fix postinst script
