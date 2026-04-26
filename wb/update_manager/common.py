@@ -52,7 +52,6 @@ WB_ORIGIN = "wirenboard"
 WB_RELEASE_FILENAME = "/usr/lib/wb-release"
 WB_SOURCES_LIST_FILENAME = "/etc/apt/sources.list.d/wirenboard.list"
 WB_RELEASE_APT_PREFERENCES_FILENAME = "/etc/apt/preferences.d/20wb-release"
-WB_RELEASE_APT_EXPERIMENTAL_PREFERENCES_FILENAME = "/etc/apt/preferences.d/40wb-experimental"
 
 CONFIRM_STEPS_ARGNAME = "--confirm-steps"
 LOG_FILENAME_ARGNAME = "--log-filename"
