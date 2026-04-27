@@ -69,11 +69,11 @@ def enough_free_space():
     return True
 
 
-TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-trixie"
+TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-bullseye"
 
 
 def create_temp_apt_policy_for_tool():
-    logger.info("Creating temp apt preference to keep wb-update-manager from trixie")
+    logger.info("Creating temp apt preference to keep wb-update-manager from bullseye")
     with open(TEMP_APT_PREFERENCE_FOR_TOOL, "w", encoding="utf-8") as f:
         f.write(
             textwrap.dedent(
@@ -90,7 +90,7 @@ def create_temp_apt_policy_for_tool():
 
 
 def remove_temp_apt_policy_for_tool():
-    logger.info("Removing temp apt preference to keep wb-update-manager from trixie")
+    logger.info("Removing temp apt preference to keep wb-update-manager from bullseye")
     os.remove(TEMP_APT_PREFERENCE_FOR_TOOL)
 
 
