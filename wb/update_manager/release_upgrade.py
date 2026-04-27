@@ -69,7 +69,7 @@ def enough_free_space():
     return True
 
 
-TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-trixie"
+TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-bullseye"
 
 
 def create_temp_apt_policy_for_tool():
