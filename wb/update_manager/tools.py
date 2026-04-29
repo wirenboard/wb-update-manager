@@ -14,7 +14,7 @@ def apt_purge(*packages, assume_yes=False):
 
 
 def apt_install(*packages, assume_yes=False, fix_broken=False):
-    cmd = ("-f", "install") if fix_broken else ("install",)
+    cmd = ("install", "-f") if fix_broken else ("install",)
     run_apt(*cmd, *packages, assume_yes=assume_yes)
 
 
