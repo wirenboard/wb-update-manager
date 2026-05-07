@@ -10,6 +10,8 @@ __pycache__
 htmlcov/
 coverage.xml
 pyproject.toml
+.coveragerc
+.devcontainer
 
 **/debian/*.debhelper
 **/debian/files

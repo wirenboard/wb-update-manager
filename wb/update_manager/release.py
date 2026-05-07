@@ -13,7 +13,6 @@ import textwrap
 
 from systemd import journal
 
-from .bullseye import upgrade_new_debian_release
 from .common import (
     CONFIRM_STEPS_ARGNAME,
     LOG_FILENAME_ARGNAME,
@@ -38,6 +37,7 @@ from .common import (
     run_cmd,
     user_confirm,
 )
+from .release_upgrade import upgrade_new_debian_release
 
 WB_TEMP_UPGRADE_PREFERENCES_FILENAME = "/etc/apt/preferences.d/00wb-release-upgrade-temp"
 DEFAULT_LOG_FILENAME = "/var/log/wb-release/update_{datetime}.log"
@@ -446,7 +446,7 @@ def main(argv=None):
         UPDATE_DEBIAN_RELEASE_ARGNAME,
         dest="update_debian_release",
         action="store_true",
-        help="update Debian release to bullseye",
+        help="update Debian release to trixie",
     )
     parser.add_argument(
         CONFIRM_STEPS_ARGNAME,

@@ -12,10 +12,10 @@ ERROR_MSG_RU=$(echo -e "Похоже, процедура обновления De
 
 Пожалуйста, запустите \u001b[1m\u001b[33mwb-release --update-debian-release\u001b[0m ещё раз.")
 
-DONE_MSG_EN="Debian release is updated to bullseye!
+DONE_MSG_EN="Debian release is updated to trixie!
 Please reboot your Wiren Board."
 
-DONE_MSG_RU="Версия Debian обновилась до bullseye!
+DONE_MSG_RU="Версия Debian обновилась до trixie!
 Пожалуйста, перезагрузите Wiren Board."
 
 if [ "$LANG" == "ru-RU.UTF-8" ]; then
