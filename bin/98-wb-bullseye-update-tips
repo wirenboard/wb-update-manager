@@ -1,7 +1,0 @@
-#!/bin/sh
-
-if [ -e /var/lib/wirenboard/disable-bullseye-tips ]; then
-    exit 0
-fi
-
-/usr/lib/wb-update-manager/bullseye-update-tips 2>/dev/null || exit 0

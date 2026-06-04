@@ -11,7 +11,7 @@ fi
 OBSOLETES=()
 
 for file in /etc/apt/sources.list.d/*; do
-    if grep -qE '^\s*deb.*(buster|stretch|wheezy)' "$file"; then
+    if grep -qE '^\s*deb.*(buster|stretch|wheezy|bullseye)' "$file"; then
         OBSOLETES+=( "$file" )
     fi
 done
