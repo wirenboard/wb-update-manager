@@ -3,4 +3,6 @@ buildDebArchAll defaultRunPythonChecks: true,
                 defaultRunCoverage: true,
                 defaultAngryPylint: true,
                 defaultCoverageMin: "90",
-                defaultDoCoverallsReporting: true
+                defaultDoCoverallsReporting: true,
+                defaultDebianRelease: 'bullseye',
+                defaultWbdevImage: 'contactless/devenv:latest_bullseye'

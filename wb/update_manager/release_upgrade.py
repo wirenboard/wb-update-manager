@@ -142,20 +142,26 @@ def upgrade_and_maybe_switch_tool(assume_yes, log_filename=None):
 TEMP_UPGRADE_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-trixie-upgrade.list"
 TEMP_UPGRADE_APT_PREFERENCES = "/etc/apt/preferences.d/000wb-trixie-upgrade"
 TEMP_UPGRADE_APT_CONFIG = "/etc/apt/apt.conf.d/000wb-trixie-upgrade"
+TEMP_BOOTSTRAP_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-trixie-keyring-bootstrap.list"
+
+
+def _write_temp_upgrade_sources(filename, trusted=False):
+    trusted_arg = "[trusted=yes] " if trusted else ""
+    logger.info("Creating temp sources list for Trixie on %s", filename)
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(
+            textwrap.dedent(
+                f"""
+                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie main
+                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie-updates main
+                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie-backports main
+                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian-security trixie-security main"""
+            ).strip()
+        )
 
 
 def create_temp_apt_configs():
-    logger.info("Creating temp sources list for Trixie on %s", TEMP_UPGRADE_SOURCES_LIST)
-    with open(TEMP_UPGRADE_SOURCES_LIST, "w", encoding="utf-8") as f:
-        f.write(
-            textwrap.dedent(
-                """
-                deb http://deb.debian.org/debian trixie main
-                deb http://deb.debian.org/debian trixie-updates main
-                deb http://deb.debian.org/debian trixie-backports main
-                deb http://security.debian.org/debian-security trixie-security main"""
-            ).strip()
-        )
+    _write_temp_upgrade_sources(TEMP_UPGRADE_SOURCES_LIST, trusted=False)
 
     logger.info("Creating temp apt preferences for Trixie on %s", TEMP_UPGRADE_APT_PREFERENCES)
     with open(TEMP_UPGRADE_APT_PREFERENCES, "w", encoding="utf-8") as f:
@@ -181,6 +187,19 @@ def remove_temp_apt_configs():
     os.remove(TEMP_UPGRADE_SOURCES_LIST)
     os.remove(TEMP_UPGRADE_APT_PREFERENCES)
     os.remove(TEMP_UPGRADE_APT_CONFIG)
+
+
+def bootstrap_debian_archive_keyring(assume_yes):
+    logger.info("Bootstrapping debian-archive-keyring from trixie to refresh apt keys")
+    _write_temp_upgrade_sources(TEMP_BOOTSTRAP_SOURCES_LIST, trusted=True)
+
+    try:
+        apt_update()
+        apt_install("debian-archive-keyring", assume_yes=assume_yes)
+    finally:
+        logger.info("Removing temporary trusted sources list %s", TEMP_BOOTSTRAP_SOURCES_LIST)
+        os.remove(TEMP_BOOTSTRAP_SOURCES_LIST)
+        _cleanup_apt_cached_lists()
 
 
 @contextmanager
@@ -335,6 +354,8 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
         .strip(),
         assume_yes,
     )
+
+    bootstrap_debian_archive_keyring(assume_yes=True)
 
     with ExitStack() as stack:
         # these operation order is not important
