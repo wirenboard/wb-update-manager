@@ -245,6 +245,9 @@ def main_upgrade(assume_yes):
 
     apt_update()
 
+    # replace obsolete jsonrpc package with new one
+    apt_install("python3-jsonrpc", "python3-json-rpc-", assume_yes=True)
+
     if not assume_yes:
         logger.info("Simulating upgrade")
         run_cmd("apt", "dist-upgrade", "-s", "-V")

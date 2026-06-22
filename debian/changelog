@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade4) stable; urgency=medium
+
+  * Replace python3-json-rpc with python3-jsonrpc
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Mon, 22 Jun 2026 10:40:00 +0400
+
 wb-update-manager (1.4.0-upgrade3) stable; urgency=medium
 
   * Update debian-archive-keyring
