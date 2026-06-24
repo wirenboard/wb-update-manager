@@ -364,10 +364,7 @@ def route(args, argv):  # pylint: disable=too-many-return-statements
     )
 
 
-def main(argv=None):
-    if argv is None:
-        argv = sys.argv
-
+def get_parser():
     parser = argparse.ArgumentParser(
         description="The tool to manage Wirenboard software releases",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -454,7 +451,14 @@ def main(argv=None):
         action="store_true",
         help="ask for confirmation on each step (for Debian release update)",
     )
+    return parser
 
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+
+    parser = get_parser()
     args = parser.parse_args(argv[1:])
 
     return route(args, argv)
