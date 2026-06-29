@@ -323,6 +323,16 @@ def make_trixie_target_state(state: SystemState) -> SystemState:
     return state._replace(target=controller_version + "/trixie")
 
 
+def get_global_progress_flag() -> str:
+    flag = "/var/lib/wb-debian-release-update-in-progress"
+
+    if not os.path.exists(flag):
+        return ""
+
+    with open(flag, encoding="utf-8") as f:
+        return f.read().strip()
+
+
 def set_global_progress_flag(value: str):
     flag = "/var/lib/wb-debian-release-update-in-progress"
 
@@ -382,16 +392,23 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
 def upgrade_new_debian_release(
     state: SystemState, log_filename, assume_yes=False, confirm_steps=False, no_preliminary_update=False
 ):
-    # how to do it only on fresh start? check state of 'initialize'
-    if not enough_free_space():
-        return 1
-
     try:
+        progress_state = get_global_progress_flag()
+        if not progress_state:
+            progress_state = "initialize"
+
+        if progress_state == "initialize" and not enough_free_space():
+            return 1
+
         if not no_preliminary_update:
-            # this may break if apt failed during processes, so should be able to skip it somehow?
-            # or enforce tool installation from trixie inside
-            upgrade_and_maybe_switch_tool(assume_yes, log_filename=log_filename)
-            return 0  # should never be here
+            if progress_state == "initialize":
+                # this may break if apt failed during processes, so should be able to skip it somehow?
+                # or enforce tool installation from trixie inside
+                set_global_progress_flag("initialize")
+                upgrade_and_maybe_switch_tool(assume_yes, log_filename=log_filename)
+                return 0  # should never be here
+
+            logger.info('Skipping preliminary upgrade stage due to progress state "%s"', progress_state)
 
         new_state = make_trixie_target_state(state)
         if not release_exists(new_state):
