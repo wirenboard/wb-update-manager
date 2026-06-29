@@ -28,6 +28,7 @@ def patch_all_systemish(func):
                 (release_upgrade, "remove_temp_apt_policy_for_tool"),
                 (release_upgrade, "touch_system_update_done_flag"),
                 (release_upgrade, "upgrade_and_maybe_switch_tool"),
+                (release_upgrade, "get_global_progress_flag"),
                 (release_upgrade, "set_global_progress_flag"),
                 (release_upgrade, "install_progress_banner"),
                 (release_upgrade, "release_exists"),
@@ -42,6 +43,7 @@ def patch_all_systemish(func):
 
             kwargs["release_exists_mock"].side_effect = (True,)
             kwargs["enough_free_space_mock"].side_effect = (True,)
+            kwargs["get_global_progress_flag_mock"].side_effect = ("",)
 
             return func(*args, **kwargs)
 
@@ -171,6 +173,19 @@ def test_fail_on_low_free_space(enough_free_space_mock=None, run_cmd_mock=None, 
 
 
 @patch_all_systemish
+def test_no_free_space_check_after_interrupted_transition(
+    get_global_progress_flag_mock=None, enough_free_space_mock=None, run_cmd_mock=None, **_
+):
+    get_global_progress_flag_mock.side_effect = ("error",)
+    enough_free_space_mock.side_effect = (False,)
+
+    run_usual_upgrade(no_preliminary_update=False)
+
+    enough_free_space_mock.assert_not_called()
+    run_cmd_mock.assert_called()
+
+
+@patch_all_systemish
 def test_call_tool_upgrade_on_flag(upgrade_and_maybe_switch_tool_mock=None, run_cmd_mock=None, **_):
     run_usual_upgrade(no_preliminary_update=False)
 
@@ -182,6 +197,18 @@ def test_call_tool_upgrade_on_flag(upgrade_and_maybe_switch_tool_mock=None, run_
 def test_no_tool_upgrade_without_flag(upgrade_and_maybe_switch_tool_mock=None, **_):
     run_usual_upgrade()
     upgrade_and_maybe_switch_tool_mock.assert_not_called()
+
+
+@patch_all_systemish
+def test_no_tool_upgrade_after_interrupted_transition(
+    get_global_progress_flag_mock=None, upgrade_and_maybe_switch_tool_mock=None, run_cmd_mock=None, **_
+):
+    get_global_progress_flag_mock.side_effect = ("error",)
+
+    run_usual_upgrade(no_preliminary_update=False)
+
+    upgrade_and_maybe_switch_tool_mock.assert_not_called()
+    run_cmd_mock.assert_called()
 
 
 @patch_all_systemish
