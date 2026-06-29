@@ -143,6 +143,7 @@ TEMP_UPGRADE_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-trixie-upgrade.list"
 TEMP_UPGRADE_APT_PREFERENCES = "/etc/apt/preferences.d/000wb-trixie-upgrade"
 TEMP_UPGRADE_APT_CONFIG = "/etc/apt/apt.conf.d/000wb-trixie-upgrade"
 TEMP_BOOTSTRAP_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-trixie-keyring-bootstrap.list"
+MIN_DEBIAN_ARCHIVE_KEYRING_VERSION = "2025.1"
 
 
 def _write_temp_upgrade_sources(filename, trusted=False):
@@ -189,7 +190,36 @@ def remove_temp_apt_configs():
     os.remove(TEMP_UPGRADE_APT_CONFIG)
 
 
+def is_debian_archive_keyring_recent_enough(min_version=MIN_DEBIAN_ARCHIVE_KEYRING_VERSION):
+    try:
+        query = subprocess.run(
+            ["dpkg-query", "--showformat=${Version}", "--show", "debian-archive-keyring"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+
+    installed_version = query.stdout.strip()
+    if not installed_version:
+        return False
+
+    comparison = subprocess.run(
+        ["dpkg", "--compare-versions", installed_version, "ge", min_version],
+        check=False,
+    )
+    return comparison.returncode == 0
+
+
 def bootstrap_debian_archive_keyring(assume_yes):
+    if is_debian_archive_keyring_recent_enough():
+        logger.info(
+            "debian-archive-keyring is already recent enough (>= %s), skipping bootstrap",
+            MIN_DEBIAN_ARCHIVE_KEYRING_VERSION,
+        )
+        return
+
     logger.info("Bootstrapping debian-archive-keyring from trixie to refresh apt keys")
     _write_temp_upgrade_sources(TEMP_BOOTSTRAP_SOURCES_LIST, trusted=True)
 
