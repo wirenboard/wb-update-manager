@@ -395,10 +395,9 @@ def upgrade_new_debian_release(
     try:
         progress_state = get_global_progress_flag()
         if not progress_state:
+            if not enough_free_space():
+                return 1
             progress_state = "initialize"
-
-        if progress_state == "initialize" and not enough_free_space():
-            return 1
 
         if not no_preliminary_update:
             if progress_state == "initialize":
