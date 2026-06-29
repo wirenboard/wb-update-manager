@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade7) stable; urgency=medium
+
+  * Skip bootstrapping debian-archive-keyring if it is already recent enough
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Mon, 29 Jun 2026 12:40:00 +0400
+
 wb-update-manager (1.4.0-upgrade6) stable; urgency=medium
 
   * Check free space only on fresh start

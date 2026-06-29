@@ -1,4 +1,5 @@
 import functools
+import subprocess
 from contextlib import ExitStack
 from unittest.mock import MagicMock, call, patch
 
@@ -254,3 +255,72 @@ def test_wb_configs_reconfigured_after_purge_of_stretch(**_):
         run_usual_upgrade()
 
     dpkg_reconfigure_mock.assert_called_once_with("wb-configs")
+
+
+def test_skip_keyring_bootstrap_when_version_is_fresh_enough():
+    version_check_mock = MagicMock(return_value=True)
+    write_sources_mock = MagicMock()
+    apt_update_mock = MagicMock()
+    apt_install_mock = MagicMock()
+    cleanup_mock = MagicMock()
+
+    with patch.multiple(
+        "wb.update_manager.release_upgrade",
+        is_debian_archive_keyring_recent_enough=version_check_mock,
+        _write_temp_upgrade_sources=write_sources_mock,
+        apt_update=apt_update_mock,
+        apt_install=apt_install_mock,
+        _cleanup_apt_cached_lists=cleanup_mock,
+    ):
+        release_upgrade.bootstrap_debian_archive_keyring(assume_yes=True)
+
+    write_sources_mock.assert_not_called()
+    apt_update_mock.assert_not_called()
+    apt_install_mock.assert_not_called()
+    cleanup_mock.assert_not_called()
+
+
+def test_keyring_bootstrap_runs_when_version_is_old():
+    version_check_mock = MagicMock(return_value=False)
+    write_sources_mock = MagicMock()
+    apt_update_mock = MagicMock()
+    apt_install_mock = MagicMock()
+    cleanup_mock = MagicMock()
+
+    with patch.multiple(
+        "wb.update_manager.release_upgrade",
+        is_debian_archive_keyring_recent_enough=version_check_mock,
+        _write_temp_upgrade_sources=write_sources_mock,
+        apt_update=apt_update_mock,
+        apt_install=apt_install_mock,
+        _cleanup_apt_cached_lists=cleanup_mock,
+    ), patch("wb.update_manager.release_upgrade.os.remove") as remove_mock:
+        release_upgrade.bootstrap_debian_archive_keyring(assume_yes=True)
+
+    write_sources_mock.assert_called_once_with(release_upgrade.TEMP_BOOTSTRAP_SOURCES_LIST, trusted=True)
+    apt_update_mock.assert_called_once()
+    apt_install_mock.assert_called_once_with("debian-archive-keyring", assume_yes=True)
+    remove_mock.assert_called_once_with(release_upgrade.TEMP_BOOTSTRAP_SOURCES_LIST)
+    cleanup_mock.assert_called_once()
+
+
+def test_keyring_version_check_uses_dpkg_comparison():
+    with patch("wb.update_manager.release_upgrade.subprocess.run") as run_mock:
+        run_mock.side_effect = [
+            subprocess.CompletedProcess(args=[], returncode=0, stdout="2025.1\n"),
+            subprocess.CompletedProcess(args=[], returncode=0),
+        ]
+
+        assert release_upgrade.is_debian_archive_keyring_recent_enough()
+
+    run_mock.assert_has_calls(
+        [
+            call(
+                ["dpkg-query", "--showformat=${Version}", "--show", "debian-archive-keyring"],
+                check=True,
+                text=True,
+                capture_output=True,
+            ),
+            call(["dpkg", "--compare-versions", "2025.1", "ge", "2025.1"], check=False),
+        ]
+    )
