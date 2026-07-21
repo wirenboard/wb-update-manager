@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade8) stable; urgency=medium
+
+  * Ensure wb-configs is upgraded first
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 21 Jun 2026 16:40:00 +0400
+
 wb-update-manager (1.4.0-upgrade7) stable; urgency=medium
 
   * Skip bootstrapping debian-archive-keyring if it is already recent enough
