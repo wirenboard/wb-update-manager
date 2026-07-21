@@ -287,6 +287,8 @@ def main_upgrade(assume_yes):
     with mask_services(*services_to_mask):
         logger.info("Performing actual upgrade")
 
+        apt_install("wb-configs", assume_yes=assume_yes)
+
         # There is "Breaks" collision in trixie upgrade which we cannot resolve,
         # so I applied this ugly patch. Old nm breaks new ppp, so when we try to
         # install new ppp or nm, apt-get dies.
