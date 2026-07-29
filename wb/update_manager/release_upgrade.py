@@ -174,8 +174,24 @@ def create_temp_apt_configs():
                 Pin-Priority: -1
 
                 Package: *
-                Pin: release o=Debian,n=trixie*
-                Pin-Priority: 501"""  # this must be < 510 in order to install backports deps properly
+                Pin: release o=Debian,n=trixie
+                Pin-Priority: 501
+
+                Package: *
+                Pin: release o=Debian,n=trixie-updates
+                Pin-Priority: 501
+
+                Package: *
+                Pin: release o=Debian,n=trixie-security
+                Pin-Priority: 501
+
+                Package: *
+                Pin: release o=Debian Backports,n=trixie-backports
+                Pin-Priority: 100
+
+                Package: src:curl src:ngtcp2 src:nghttp3
+                Pin: release o=Debian Backports,n=trixie-backports
+                Pin-Priority: 502"""
             ).strip()
         )
 
@@ -286,8 +302,6 @@ def main_upgrade(assume_yes):
 
     with mask_services(*services_to_mask):
         logger.info("Performing actual upgrade")
-
-        apt_install("wb-configs", assume_yes=assume_yes)
 
         # There is "Breaks" collision in trixie upgrade which we cannot resolve,
         # so I applied this ugly patch. Old nm breaks new ppp, so when we try to
