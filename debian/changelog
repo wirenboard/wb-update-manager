@@ -2,7 +2,7 @@ wb-update-manager (1.4.0-upgrade9) stable; urgency=medium
 
   * Fix apt preferences
 
- -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 21 Jun 2026 16:40:00 +0400
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 04 Aug 2026 10:00:00 +0400
 
 wb-update-manager (1.4.0-upgrade8) stable; urgency=medium
 
