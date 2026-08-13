@@ -145,55 +145,72 @@ TEMP_UPGRADE_APT_CONFIG = "/etc/apt/apt.conf.d/000wb-trixie-upgrade"
 TEMP_BOOTSTRAP_SOURCES_LIST = "/etc/apt/sources.list.d/000wb-trixie-keyring-bootstrap.list"
 MIN_DEBIAN_ARCHIVE_KEYRING_VERSION = "2025.1"
 
+BACKPORTS_CURL_PIN = """
 
-def _write_temp_upgrade_sources(filename, trusted=False):
+Package: src:curl src:ngtcp2 src:nghttp3
+Pin: release o=Debian Backports,n=trixie-backports
+Pin-Priority: 502"""
+
+# Wiren Board network-manager is not installable until trixie-backports is enabled (it needs
+# libcurl4-gnutls from there), and apt does not fall back to the trixie one on its own: it takes
+# the highest-priority candidate, finds it unsatisfiable and schedules network-manager for removal
+# instead. So it is pinned away until the last stage, where it is installed as a regular upgrade
+# over the trixie one (1.52.1-1-wb100 > 1.52.1-1).
+WB_NETWORK_MANAGER_PIN = """
+
+Package: src:network-manager
+Pin: release o=wirenboard
+Pin-Priority: -1"""
+
+
+def _write_temp_upgrade_sources(filename, trusted=False, backports=False):
     trusted_arg = "[trusted=yes] " if trusted else ""
     logger.info("Creating temp sources list for Trixie on %s", filename)
+    sources = textwrap.dedent(
+        f"""
+        deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie main
+        deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie-updates main
+        deb {trusted_arg}http://debian-mirror.wirenboard.com/debian-security trixie-security main"""
+    ).strip()
+
+    if backports:
+        sources += f"\ndeb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie-backports main"
+
     with open(filename, "w", encoding="utf-8") as f:
-        f.write(
-            textwrap.dedent(
-                f"""
-                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie main
-                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie-updates main
-                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian trixie-backports main
-                deb {trusted_arg}http://debian-mirror.wirenboard.com/debian-security trixie-security main"""
-            ).strip()
-        )
+        f.write(sources)
 
 
-def create_temp_apt_configs():
-    _write_temp_upgrade_sources(TEMP_UPGRADE_SOURCES_LIST, trusted=False)
+def create_temp_apt_configs(backports=False):
+    _write_temp_upgrade_sources(TEMP_UPGRADE_SOURCES_LIST, trusted=False, backports=backports)
 
     logger.info("Creating temp apt preferences for Trixie on %s", TEMP_UPGRADE_APT_PREFERENCES)
+    preferences = textwrap.dedent(
+        """
+        Package: *
+        Pin: release o=Debian,n=bullseye*
+        Pin-Priority: -1
+
+        Package: *
+        Pin: release o=Debian,n=trixie
+        Pin-Priority: 501
+
+        Package: *
+        Pin: release o=Debian,n=trixie-updates
+        Pin-Priority: 501
+
+        Package: *
+        Pin: release o=Debian,n=trixie-security
+        Pin-Priority: 501
+
+        Package: *
+        Pin: release o=Debian Backports,n=trixie-backports
+        Pin-Priority: 100"""
+    ).strip()
+
+    preferences += BACKPORTS_CURL_PIN if backports else WB_NETWORK_MANAGER_PIN
+
     with open(TEMP_UPGRADE_APT_PREFERENCES, "w", encoding="utf-8") as f:
-        f.write(
-            textwrap.dedent(
-                """
-                Package: *
-                Pin: release o=Debian,n=bullseye*
-                Pin-Priority: -1
-
-                Package: *
-                Pin: release o=Debian,n=trixie
-                Pin-Priority: 501
-
-                Package: *
-                Pin: release o=Debian,n=trixie-updates
-                Pin-Priority: 501
-
-                Package: *
-                Pin: release o=Debian,n=trixie-security
-                Pin-Priority: 501
-
-                Package: *
-                Pin: release o=Debian Backports,n=trixie-backports
-                Pin-Priority: 100
-
-                Package: src:curl src:ngtcp2 src:nghttp3
-                Pin: release o=Debian Backports,n=trixie-backports
-                Pin-Priority: 502"""
-            ).strip()
-        )
+        f.write(preferences)
 
     with open(TEMP_UPGRADE_APT_CONFIG, "w", encoding="utf-8") as f:
         f.write('APT::Key::gpgvcommand "/usr/bin/gpgv";')
@@ -226,6 +243,31 @@ def is_debian_archive_keyring_recent_enough(min_version=MIN_DEBIAN_ARCHIVE_KEYRI
         check=False,
     )
     return comparison.returncode == 0
+
+
+def upgrade_curl_from_backports(assume_yes):
+    # Wiren Board network-manager depends on libcurl4-gnutls (>= 8.20.0-3~), which is available
+    # in trixie-backports only, so the curl stack has to come from there. But the upgrade cannot
+    # go from bullseye to trixie-backports curl in one step: bullseye ships libcurl3-gnutls,
+    # trixie renamed it to libcurl3t64-gnutls, and trixie-backports (curl 8.21) renamed it once
+    # again to libcurl4-gnutls. libcurl4-gnutls declares Breaks/Replaces on libcurl3t64-gnutls
+    # only, so nothing tells apt to remove the bullseye libcurl3-gnutls. If it survives until
+    # libcurl4-gnutls is unpacked, dpkg refuses to overwrite libcurl-gnutls.so.4 owned by it and
+    # the whole dist-upgrade dies (apt-get install -f then retries the very same unpack and dies
+    # too).
+    #
+    # So the curl upgrade is split in two: the earlier stages take curl from trixie, where
+    # libcurl3t64-gnutls does declare Breaks/Replaces on libcurl3-gnutls and apt removes the
+    # bullseye package properly, and this stage takes it from trixie-backports, where
+    # libcurl4-gnutls declares them on libcurl3t64-gnutls. Every rename is handled by the
+    # metadata of the package doing it, no forced removals needed.
+    #
+    # Wiren Board network-manager (1.52.1-1-wb100) is newer than the trixie one (1.52.1-1)
+    # installed on the first stage, so it is a plain upgrade here, not a downgrade.
+    logger.info("Enabling trixie-backports to upgrade curl and Wiren Board network-manager")
+    create_temp_apt_configs(backports=True)
+    apt_update()
+    apt_upgrade(dist=True, assume_yes=assume_yes)
 
 
 def bootstrap_debian_archive_keyring(assume_yes):
@@ -319,6 +361,9 @@ def main_upgrade(assume_yes):
         logger.debug("Updating packages list, may be outdated after long update procedure")
         apt_update()
         apt_upgrade(dist=True, assume_yes=assume_yes)
+
+        logger.info("Performing actual upgrade - third stage (curl from trixie-backports)")
+        upgrade_curl_from_backports(assume_yes)
 
     logger.info("Enabling services which were possibly disabled during update")
     systemd_enable(*services_to_reenable)
