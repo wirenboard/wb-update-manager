@@ -1,3 +1,10 @@
+wb-update-manager (1.5.2) stable; urgency=medium
+
+  * Fix crash on relative --log-filename path
+  * Fix locale detection in obsolete repositories update tip
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Mon, 24 Aug 2026 10:40:00 +0400
+
 wb-update-manager (1.5.1) stable; urgency=medium
 
   * Add bash completion
