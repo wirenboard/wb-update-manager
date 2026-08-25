@@ -632,3 +632,31 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         )
         release.run_system_update.assert_called_once_with(assume_yes)
         release.run_apt.assert_called_once_with("autoremove", assume_yes=True)
+
+
+class TestConfigureLogger:
+    @pytest.fixture(autouse=True)
+    def restore_handlers(self):
+        handlers = release.logger.handlers[:]
+        yield
+        for handler in release.logger.handlers:
+            if handler not in handlers:
+                handler.close()
+        release.logger.handlers = handlers
+
+    @pytest.mark.parametrize("log_filename", ["update.log", "./update.log", "subdir/update.log"])
+    def test_log_filename(self, log_filename, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+
+        release.configure_logger(log_filename, no_journald_log=True)
+        release.logger.info("hello")
+
+        assert (tmp_path / log_filename).exists()
+
+    def test_absolute_log_filename(self, tmp_path):
+        log_filename = str(tmp_path / "logs" / "update.log")
+
+        release.configure_logger(log_filename, no_journald_log=True)
+        release.logger.info("hello")
+
+        assert os.path.exists(log_filename)

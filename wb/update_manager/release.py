@@ -53,7 +53,7 @@ def configure_logger(log_filename=None, no_journald_log=False):
 
     if log_filename:
         file_fmt = logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
-        os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+        os.makedirs(os.path.dirname(log_filename) or ".", exist_ok=True)
         file_handler = logging.FileHandler(log_filename)
         file_handler.setFormatter(file_fmt)
         file_handler.setLevel(logging.DEBUG)
