@@ -19,4 +19,5 @@ setup(
     maintainer_email="info@wirenboard.com",
     url="https://github.com/wirenboard/wb-update-manager",
     packages=["wb.update_manager"],
+    package_data={"wb.update_manager": ["locale/*/LC_MESSAGES/*.mo"]},
 )

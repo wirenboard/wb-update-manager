@@ -3,6 +3,7 @@ These items are moved from release.py without changes to use it in the Bullseye 
 """
 
 import errno
+import gettext
 import logging
 import os
 import shutil
@@ -66,7 +67,33 @@ class UserAbortException(Exception):
 ReleaseInfo = namedtuple("ReleaseInfo", "release_name suite target repo_prefix")
 SystemState = namedtuple("SystemState", "suite target repo_prefix consistent")
 
-logger = logging.getLogger("wb-release")
+
+class GettextLoggerAdapter:
+    """Translate user-facing log messages while preserving lazy formatting."""
+
+    def __init__(self, logger, translation):
+        self.logger = logger
+        self.translation = translation
+
+    def __getattr__(self, name):
+        return getattr(self.logger, name)
+
+    def debug(self, msg, *args, **kwargs):
+        return self.logger.debug(self.translation.gettext(msg), *args, **kwargs)
+
+    def info(self, msg, *args, **kwargs):
+        return self.logger.info(self.translation.gettext(msg), *args, **kwargs)
+
+    def error(self, msg, *args, **kwargs):
+        return self.logger.error(self.translation.gettext(msg), *args, **kwargs)
+
+
+translation = gettext.translation(
+    "wb-update-manager",
+    localedir=Path(__file__).with_name("locale"),
+    fallback=True,
+)
+logger = GettextLoggerAdapter(logging.getLogger("wb-release"), translation)
 
 
 def user_confirm(text=None, assume_yes=False):

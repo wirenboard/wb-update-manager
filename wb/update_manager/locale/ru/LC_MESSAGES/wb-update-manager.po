@@ -1,0 +1,185 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: wb-update-manager\n"
+"Language: ru\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : "
+"n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+msgid "Accessing %s..."
+msgstr "Обращение к %s..."
+
+msgid "Response code %d"
+msgstr "Код ответа %d"
+
+msgid "Starting cmd: \"%s\""
+msgstr "Запуск команды: \"%s\""
+
+msgid "Environment: \"%s\""
+msgstr "Окружение: \"%s\""
+
+msgid "Ctrl-C caught, waiting for child process %s to shut down"
+msgstr "Получен Ctrl-C, ожидание завершения дочернего процесса %s"
+
+msgid "Generating %s for %s"
+msgstr "Создание %s для %s"
+
+msgid "Update log is written to %s"
+msgstr "Журнал обновления записывается в %s"
+
+msgid "journald logging enabled"
+msgstr "Запись журнала в journald включена"
+
+msgid "Cleaning up temp apt preferences %s"
+msgstr "Удаление временных настроек приоритетов apt %s"
+
+msgid "Restoring original system state"
+msgstr "Восстановление исходного состояния системы"
+
+msgid "Cleaning apt cache"
+msgstr "Очистка кеша apt"
+
+msgid "Performing upgrade on the current release"
+msgstr "Обновление текущего релиза"
+
+msgid "Starting (possibly updated) update utility as new process"
+msgstr "Запуск (возможно, обновлённой) утилиты обновления в новом процессе"
+
+msgid "Setting target release to %s, prefix \"%s\""
+msgstr "Установка целевого релиза %s, префикс \"%s\""
+
+msgid "Temporary setting apt preferences to force install release packages"
+msgstr "Временная настройка приоритетов apt для принудительной установки пакетов релиза"
+
+msgid "Updating system"
+msgstr "Обновление системы"
+
+msgid "Cleaning up old packages"
+msgstr "Удаление старых пакетов"
+
+msgid "Restarting wb-rules to show actual release info in MQTT"
+msgstr "Перезапуск wb-rules для отображения актуальной информации о релизе в MQTT"
+
+msgid "Update done! Please reboot the system"
+msgstr "Обновление завершено! Перезагрузите систему"
+
+msgid "Aborted by user"
+msgstr "Отменено пользователем"
+
+msgid "Interrupted by user"
+msgstr "Прервано пользователем"
+
+msgid "\nThe subprocess %s has failed with status %d"
+msgstr "\nДочерний процесс %s завершился с ошибкой, код %d"
+
+msgid "Update log is saved in %s"
+msgstr "Журнал обновления сохранён в %s"
+
+msgid "Simulating upgrade"
+msgstr "Имитация обновления"
+
+msgid "Performing actual upgrade"
+msgstr "Выполнение обновления"
+
+msgid "--reset-packages flag can't be used on release change, abort"
+msgstr "Флаг --reset-packages нельзя использовать при смене релиза, операция отменена"
+
+msgid "Target and current releases are the same, nothing to do"
+msgstr "Целевой и текущий релизы совпадают, никаких действий не требуется"
+
+msgid "Target state does not exist: %s"
+msgstr "Целевое состояние не существует: %s"
+
+msgid "Need at least %d MB of free space for apt cache (/mnt/data)"
+msgstr "Для кеша apt необходимо не менее %d МБ свободного места (/mnt/data)"
+
+msgid "Need at least %d MB of free space in root partition"
+msgstr "В корневом разделе необходимо не менее %d МБ свободного места"
+
+msgid "Creating temp apt preference to keep wb-update-manager from bullseye"
+msgstr "Создание временных настроек приоритетов apt для сохранения версии wb-update-manager из bullseye"
+
+msgid "Removing temp apt preference to keep wb-update-manager from bullseye"
+msgstr "Удаление временных настроек приоритетов apt для версии wb-update-manager из bullseye"
+
+msgid "Try to install new wb-update-manager version"
+msgstr "Попытка установить новую версию wb-update-manager"
+
+msgid "Creating temp sources list for Trixie on %s"
+msgstr "Создание временного списка источников Trixie в %s"
+
+msgid "Creating temp apt preferences for Trixie on %s"
+msgstr "Создание временных настроек приоритетов apt для Trixie в %s"
+
+msgid "Cleaning up temp apt configs for trixie transition"
+msgstr "Удаление временных конфигураций apt для перехода на trixie"
+
+msgid "Enabling trixie-backports to upgrade curl and Wiren Board network-manager"
+msgstr "Включение trixie-backports для обновления curl и Wiren Board network-manager"
+
+msgid "debian-archive-keyring is already recent enough (>= %s), skipping bootstrap"
+msgstr "Версия debian-archive-keyring уже достаточно новая (>= %s), начальная установка пропущена"
+
+msgid "Bootstrapping debian-archive-keyring from trixie to refresh apt keys"
+msgstr "Начальная установка debian-archive-keyring из trixie для обновления ключей apt"
+
+msgid "Removing temporary trusted sources list %s"
+msgstr "Удаление временного списка доверенных источников %s"
+
+msgid "Masking services %s"
+msgstr "Маскирование служб %s"
+
+msgid "Unmasking services %s"
+msgstr "Снятие маскировки со служб %s"
+
+msgid "Setting packages %s on hold"
+msgstr "Блокировка обновления пакетов %s"
+
+msgid "Unholding packages %s"
+msgstr "Снятие блокировки обновления пакетов %s"
+
+msgid "Performing actual upgrade - second stage (e2fsprogs update)"
+msgstr "Выполнение обновления — второй этап (обновление e2fsprogs)"
+
+msgid "Updating packages list, may be outdated after long update procedure"
+msgstr "Обновление списка пакетов, который мог устареть за время длительного обновления"
+
+msgid "Performing actual upgrade - third stage (curl from trixie-backports)"
+msgstr "Выполнение обновления — третий этап (curl из trixie-backports)"
+
+msgid "Enabling services which were possibly disabled during update"
+msgstr "Включение служб, которые могли быть отключены во время обновления"
+
+msgid "Restaring updated services"
+msgstr "Перезапуск обновлённых служб"
+
+msgid "Reconfiguring new wb-configs to enable its services back"
+msgstr "Перенастройка нового wb-configs для повторного включения его служб"
+
+msgid "Creating a flag for banner message to remind about reboot"
+msgstr "Создание флага для сообщения с напоминанием о перезагрузке"
+
+msgid "Updating wb-update-manager tool"
+msgstr "Обновление утилиты wb-update-manager"
+
+msgid "Cleaning up apt cache (to make manual apt calls safe from now)"
+msgstr "Очистка кеша apt (чтобы последующие ручные вызовы apt были безопасны)"
+
+msgid "new system config has done well, keeping this config and apt cache"
+msgstr "Новая конфигурация системы работает корректно; конфигурация и кеш apt сохранены"
+
+msgid "Removing system release update flag"
+msgstr "Удаление флага обновления релиза системы"
+
+msgid "Copying restart-required motd message from current wb-update-manager version"
+msgstr "Копирование сообщения motd о необходимости перезапуска из текущей версии wb-update-manager"
+
+msgid "Skipping preliminary upgrade stage due to progress state \"%s\""
+msgstr "Предварительный этап обновления пропущен из-за состояния процесса \"%s\""
+
+msgid "Done! Please reboot system"
+msgstr "Готово! Перезагрузите систему"
+
+msgid "Try running wb-release %s again to continue transition"
+msgstr "Чтобы продолжить переход, попробуйте снова запустить wb-release %s"
