@@ -4,7 +4,7 @@ from unittest.mock import call, mock_open, patch
 
 import pytest
 
-from wb.update_manager import release_upgrade
+from wb.update_manager import common, release_upgrade
 
 FakeStatvfs = namedtuple("FakeStatvfs", "f_bavail f_bsize")
 
@@ -13,31 +13,76 @@ def vfs_megabytes(mbs):
     return FakeStatvfs(mbs * 1024 * 1024 / 512, 512)
 
 
-def test_enough_free_space_check():
-    with patch("os.statvfs") as statvfs_mock:
-        statvfs_mock.side_effect = (vfs_megabytes(1024), vfs_megabytes(1024))
+@pytest.mark.parametrize(
+    "target, partition_exists, free_space_mb, expected_calls",
+    [
+        (
+            "wb6/bullseye",
+            True,
+            (280, 350),
+            [call("/var/cache/apt/archives"), call("/usr/bin")],
+        ),
+        (
+            "wb7/bullseye",
+            True,
+            (280, 350),
+            [call("/var/cache/apt/archives"), call("/usr/bin")],
+        ),
+        (
+            "wb8/bullseye",
+            True,
+            (310, 450),
+            [call("/var/cache/apt/archives"), call("/usr/bin")],
+        ),
+        ("wb6/bullseye", False, (670,), [call("/usr/bin")]),
+        ("wb7/bullseye", False, (670,), [call("/usr/bin")]),
+        ("wb8/bullseye", False, (750,), [call("/usr/bin")]),
+    ],
+)
+def test_enough_free_space_check(target, partition_exists, free_space_mb, expected_calls):
+    state = common.SystemState("testing", target, "", True)
 
-        assert release_upgrade.enough_free_space()
-        statvfs_mock.assert_has_calls(
-            [
-                call("/var/cache/apt/archives"),
-                call("/usr/bin"),
-            ]
-        )
+    with patch("os.path.exists", return_value=partition_exists) as exists_mock, patch(
+        "os.statvfs"
+    ) as statvfs_mock:
+        statvfs_mock.side_effect = tuple(vfs_megabytes(value) for value in free_space_mb)
+
+        assert release_upgrade.enough_free_space(state)
+        exists_mock.assert_called_once_with("/dev/mmcblk0p6")
+        assert statvfs_mock.call_args_list == expected_calls
 
 
-def test_no_free_space_check():
-    with patch("os.statvfs") as statvfs_mock:
-        statvfs_mock.side_effect = (vfs_megabytes(10), vfs_megabytes(1024))
-        assert not release_upgrade.enough_free_space()
+@pytest.mark.parametrize(
+    "target, partition_exists, free_space_mb, expected_calls",
+    [
+        ("wb6/bullseye", True, (279,), [call("/var/cache/apt/archives")]),
+        (
+            "wb7/bullseye",
+            True,
+            (280, 349),
+            [call("/var/cache/apt/archives"), call("/usr/bin")],
+        ),
+        ("wb8/bullseye", True, (309,), [call("/var/cache/apt/archives")]),
+        (
+            "wb8/bullseye",
+            True,
+            (310, 449),
+            [call("/var/cache/apt/archives"), call("/usr/bin")],
+        ),
+        ("wb6/bullseye", False, (669,), [call("/usr/bin")]),
+        ("wb8/bullseye", False, (749,), [call("/usr/bin")]),
+    ],
+)
+def test_no_free_space_check(target, partition_exists, free_space_mb, expected_calls):
+    state = common.SystemState("testing", target, "", True)
 
-        statvfs_mock.reset_mock()
-        statvfs_mock.side_effect = (vfs_megabytes(1024), vfs_megabytes(10))
-        assert not release_upgrade.enough_free_space()
+    with patch("os.path.exists", return_value=partition_exists), patch(
+        "os.statvfs"
+    ) as statvfs_mock:
+        statvfs_mock.side_effect = tuple(vfs_megabytes(value) for value in free_space_mb)
 
-        statvfs_mock.reset_mock()
-        statvfs_mock.side_effect = (vfs_megabytes(10), vfs_megabytes(10))
-        assert not release_upgrade.enough_free_space()
+        assert not release_upgrade.enough_free_space(state)
+        assert statvfs_mock.call_args_list == expected_calls
 
 
 def test_temp_apt_policy_for_tool_cleanup():
