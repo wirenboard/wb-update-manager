@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade12) stable; urgency=medium
+
+  * Update free space limits
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Fri, 11 Sep 2026 15:00:00 +0400
+
 wb-update-manager (1.4.0-upgrade11) stable; urgency=medium
 
   * Fix crash on relative --log-filename path

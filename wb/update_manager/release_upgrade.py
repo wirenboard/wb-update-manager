@@ -46,21 +46,25 @@ def _free_space_mb(path):
     return stat.f_bavail * stat.f_bsize / 1024 / 1024
 
 
-def enough_free_space():
-    # bullseye upgrade notes
-    # these values were checked using binary search on configuration with all standard software
-    # with different volumes on / and /var (not fully correct, but still representative).
-    # minimal working solution was 125 MB for root and 300 MB for /var.
-    # I add a little bit of extra requirement on root to be on a safe side.
+def enough_free_space(state: SystemState):
+    board = state.target.split("/", maxsplit=1)[0]
+    rootfs_is_extended = not os.path.exists("/dev/mmcblk0p6")
 
-    # trixie upgrade notes: cache 300=>600, root 150=>410
+    if board in ("wb6", "wb7"):
+        min_cache_free_space_mb = 280
+        min_system_free_space_mb = 670 if rootfs_is_extended else 350
+    elif board == "wb8":
+        min_cache_free_space_mb = 310
+        min_system_free_space_mb = 750 if rootfs_is_extended else 450
+    else:
+        raise ValueError(f"Unsupported board: {board}")
 
-    min_cache_free_space_mb = 600
-    min_system_free_space_mb = 410
-
-    if _free_space_mb("/var/cache/apt/archives") < min_cache_free_space_mb:
-        logger.error("Need at least %d MB of free space for apt cache (/mnt/data)", min_cache_free_space_mb)
-        return False
+    if not rootfs_is_extended:
+        if _free_space_mb("/var/cache/apt/archives") < min_cache_free_space_mb:
+            logger.error(
+                "Need at least %d MB of free space for apt cache (/mnt/data)", min_cache_free_space_mb
+            )
+            return False
 
     if _free_space_mb("/usr/bin") < min_system_free_space_mb:
         logger.error("Need at least %d MB of free space in root partition", min_system_free_space_mb)
@@ -486,7 +490,7 @@ def upgrade_new_debian_release(
     try:
         progress_state = get_global_progress_flag()
         if not progress_state:
-            if not enough_free_space():
+            if not enough_free_space(state):
                 return 1
             progress_state = "initialize"
 
