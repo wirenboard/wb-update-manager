@@ -2,4 +2,6 @@ bin/wb-release /usr/bin
 bin/98-wb-trixie-update-tips /etc/update-motd.d
 bin/trixie-update-tips /usr/lib/wb-update-manager/
 bin/trixie-tips.d/ /usr/lib/wb-update-manager/
-completions/wb-release /usr/share/bash-completion/completions
+completions/*.bash /usr/share/bash-completion/completions
+completions/*.fish /usr/share/fish/completions
+completions/_* /usr/share/zsh/vendor-completions
