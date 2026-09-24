@@ -326,3 +326,50 @@ def test_keyring_version_check_uses_dpkg_comparison():
             call(["dpkg", "--compare-versions", "2025.1", "ge", "2025.1"], check=False),
         ]
     )
+
+
+def test_breaks_packages_are_not_installed_when_upgrade_is_declined(caplog):
+    apt_install_mock = MagicMock()
+    caplog.set_level("INFO", logger=release_upgrade.logger.name)
+
+    with patch.multiple(
+        "wb.update_manager.release_upgrade",
+        apt_update=MagicMock(),
+        apt_install=apt_install_mock,
+        run_cmd=MagicMock(),
+        find_breaks_held_back_packages=MagicMock(return_value=["tmux"]),
+        user_confirm=MagicMock(side_effect=common.UserAbortException),
+    ):
+        with pytest.raises(common.UserAbortException):
+            release_upgrade.main_upgrade(assume_yes=False)
+
+    assert (
+        "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
+    )
+    assert call("tmux", assume_yes=True) not in apt_install_mock.call_args_list
+
+
+def test_breaks_resolution_and_actual_upgrade_are_confirmed_separately():
+    calls = []
+
+    def apt_upgrade(*_, **kwargs):
+        calls.append("simulate" if kwargs.get("dry_run") else "upgrade")
+        return 0, ""
+
+    with patch.multiple(
+        "wb.update_manager.release_upgrade",
+        apt_update=MagicMock(),
+        apt_install=MagicMock(),
+        apt_upgrade=MagicMock(side_effect=apt_upgrade),
+        run_cmd=MagicMock(),
+        find_breaks_held_back_packages=MagicMock(return_value=["tmux"]),
+        resolve_breaks_held_back_packages=MagicMock(side_effect=lambda _: calls.append("resolve")),
+        user_confirm=MagicMock(side_effect=lambda **_: calls.append("confirm")),
+        mask_services=MagicMock(return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock())),
+        upgrade_curl_from_backports=MagicMock(),
+        systemd_enable=MagicMock(),
+        systemd_restart=MagicMock(),
+    ):
+        release_upgrade.main_upgrade(assume_yes=False)
+
+    assert calls[:5] == ["confirm", "resolve", "simulate", "confirm", "upgrade"]

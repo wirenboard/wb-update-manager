@@ -338,7 +338,17 @@ BREAKS_BLOCKED_PACKAGE_RE = re.compile(r"^\s*\S+\s*:\s*Breaks:\s*(\S+)\s*\(", re
 MAX_BREAKS_RESOLVE_ATTEMPTS = 5
 
 
-def resolve_breaks_held_back_packages(max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS):
+def find_breaks_held_back_packages():
+    returncode, output = apt_upgrade(dist=True, dry_run=True, raise_on_error=False)
+    if returncode == 0:
+        return []
+
+    return sorted(set(BREAKS_BLOCKED_PACKAGE_RE.findall(output)))
+
+
+def resolve_breaks_held_back_packages(
+    blocked_packages, max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS
+):
     # A plain "apt-get dist-upgrade" refuses to introduce a package that was
     # renamed between releases (e.g. Debian's t64 64-bit time_t transition, which
     # is how tmux's libevent-core-2.1-7 dependency became libevent-core-2.1-7t64)
@@ -349,14 +359,7 @@ def resolve_breaks_held_back_packages(max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS):
     # simulated dist-upgrade's own error output instead of hardcoding one, and
     # fixes them up before the real upgrade runs.
     for attempt in range(max_attempts):
-        returncode, output = apt_upgrade(dist=True, dry_run=True, raise_on_error=False)
-        if returncode == 0:
-            return
-
-        blocked_packages = sorted(set(BREAKS_BLOCKED_PACKAGE_RE.findall(output)))
         if not blocked_packages:
-            # Simulation failed for some other reason; leave it for the real
-            # upgrade below to report instead of guessing.
             return
 
         logger.info(
@@ -366,6 +369,8 @@ def resolve_breaks_held_back_packages(max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS):
             max_attempts,
         )
         apt_install(*blocked_packages, assume_yes=True)
+
+        blocked_packages = find_breaks_held_back_packages()
 
 
 def main_upgrade(assume_yes):
@@ -381,11 +386,22 @@ def main_upgrade(assume_yes):
     run_cmd("dpkg", "--remove", "--force-depends", "python3-json-rpc", env=os.environ.copy())
     apt_install(assume_yes=True, fix_broken=True)
 
-    resolve_breaks_held_back_packages()
+    blocked_packages = find_breaks_held_back_packages()
+
+    if blocked_packages:
+        if not assume_yes:
+            logger.info(
+                "The following packages must be upgraded explicitly before the dist-upgrade: %s",
+                ", ".join(blocked_packages),
+            )
+            user_confirm(assume_yes=False)
+        resolve_breaks_held_back_packages(blocked_packages)
 
     if not assume_yes:
+        # Run the regular simulation after resolving any Breaks conflicts so
+        # that the second confirmation describes the actual dist-upgrade.
         logger.info("Simulating upgrade")
-        run_cmd("apt", "dist-upgrade", "-s", "-V")
+        apt_upgrade(dist=True, dry_run=True, show_versions=True)
         user_confirm(assume_yes=False)
 
     with mask_services(*services_to_mask):
