@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade13) stable; urgency=medium
+
+  * Resolve package dependency conflicts encountered during trixie dist-upgrade
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Thu, 24 Sep 2026 15:00:00 +0400
+
 wb-update-manager (1.4.0-upgrade12) stable; urgency=medium
 
   * Update free space limits

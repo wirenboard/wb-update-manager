@@ -41,6 +41,8 @@ def patch_all_systemish(func):
                     stack.enter_context(patch.object(obj, function, new=kwargs[mock_name]))
                 else:
                     kwargs[mock_name] = stack.enter_context(patch.object(obj, function))
+                if function == "run_cmd":
+                    kwargs[mock_name].return_value = (0, "")
 
             kwargs["release_exists_mock"].side_effect = (True,)
             kwargs["enough_free_space_mock"].side_effect = (True,)
@@ -73,7 +75,7 @@ class MockCalledItemCollector:
             self.collected.remove(obj)
 
 
-def fail_on_nth_call(call_n, throw=None, return_value=None):
+def fail_on_nth_call(call_n, throw=None, return_value=(0, "")):
     if not throw:
         throw = KeyboardInterrupt()
 

@@ -18,9 +18,11 @@ def apt_install(*packages, assume_yes=False, fix_broken=False):
     run_apt(*cmd, *packages, assume_yes=assume_yes)
 
 
-def apt_upgrade(dist=True, assume_yes=False):
-    cmd = "dist-upgrade" if dist else "upgrade"
-    run_apt(cmd, assume_yes=assume_yes)
+def apt_upgrade(dist=True, assume_yes=False, options=None, dry_run=False, raise_on_error=True):
+    cmd = ["dist-upgrade" if dist else "upgrade"]
+    if dry_run:
+        cmd.append("-s")
+    return run_apt(*cmd, assume_yes=assume_yes, options=options, raise_on_error=raise_on_error)
 
 
 def apt_clean():
