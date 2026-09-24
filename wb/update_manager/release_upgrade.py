@@ -1,5 +1,6 @@
 # pylint: disable=duplicate-code
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -328,6 +329,50 @@ def hold_packages(*packages):
         apt_mark_unhold(*packages)
 
 
+# Matches lines apt-get prints for an unresolvable Breaks, e.g.:
+#  libtinfo6 : Breaks: tmux (< 3.3a-4) but 3.1c-1+deb11u1 is to be installed
+# Group 1 is the package on the *right* of "Breaks:" (tmux), i.e. the one that
+# needs to be upgraded to clear the conflict, not the one declaring the Breaks.
+BREAKS_BLOCKED_PACKAGE_RE = re.compile(r"^\s*\S+\s*:\s*Breaks:\s*(\S+)\s*\(", re.MULTILINE)
+
+MAX_BREAKS_RESOLVE_ATTEMPTS = 5
+
+
+def find_breaks_held_back_packages():
+    returncode, output = apt_upgrade(dist=True, dry_run=True, raise_on_error=False)
+    if returncode == 0:
+        return []
+
+    return sorted(set(BREAKS_BLOCKED_PACKAGE_RE.findall(output)))
+
+
+def resolve_breaks_held_back_packages(
+    blocked_packages, max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS
+):
+    # A plain "apt-get dist-upgrade" refuses to introduce a package that was
+    # renamed between releases (e.g. Debian's t64 64-bit time_t transition, which
+    # is how tmux's libevent-core-2.1-7 dependency became libevent-core-2.1-7t64)
+    # just to satisfy a Breaks, so it holds the old package back instead and the
+    # whole upgrade dies on the resulting unmet dependency. "apt-get install <pkg>"
+    # doesn't have that restriction. Which package (if any) is affected depends on
+    # what's installed on a given board, so this discovers the name(s) from a
+    # simulated dist-upgrade's own error output instead of hardcoding one, and
+    # fixes them up before the real upgrade runs.
+    for attempt in range(max_attempts):
+        if not blocked_packages:
+            return
+
+        logger.info(
+            "Upgrading %s explicitly to resolve a Debian package-rename Breaks (attempt %d/%d)",
+            ", ".join(blocked_packages),
+            attempt + 1,
+            max_attempts,
+        )
+        apt_install(*blocked_packages, assume_yes=True)
+
+        blocked_packages = find_breaks_held_back_packages()
+
+
 def main_upgrade(assume_yes):
     # these services will be masked (preventing restart during update)
     # and then enabled or restarted manually
@@ -341,30 +386,43 @@ def main_upgrade(assume_yes):
     run_cmd("dpkg", "--remove", "--force-depends", "python3-json-rpc", env=os.environ.copy())
     apt_install(assume_yes=True, fix_broken=True)
 
+    blocked_packages = find_breaks_held_back_packages()
+
+    if blocked_packages:
+        if not assume_yes:
+            logger.info(
+                "The following packages must be upgraded explicitly before the dist-upgrade: %s",
+                ", ".join(blocked_packages),
+            )
+            user_confirm(assume_yes=False)
+        resolve_breaks_held_back_packages(blocked_packages)
+
     if not assume_yes:
+        # Run the regular simulation after resolving any Breaks conflicts so
+        # that the second confirmation describes the actual dist-upgrade.
         logger.info("Simulating upgrade")
-        run_cmd("apt", "dist-upgrade", "-s", "-V")
+        apt_upgrade(dist=True, dry_run=True, show_versions=True)
         user_confirm(assume_yes=False)
 
     with mask_services(*services_to_mask):
         logger.info("Performing actual upgrade")
 
-        # There is "Breaks" collision in trixie upgrade which we cannot resolve,
-        # so I applied this ugly patch. Old nm breaks new ppp, so when we try to
-        # install new ppp or nm, apt-get dies.
-        # Even though new nm wants new ppp in "Breaks", first apt-get run looks
-        # only in old nm "Breaks" section.
-        try:
-            apt_upgrade(dist=True, assume_yes=True)  # this step is confirmed in simulating above
-        except subprocess.CalledProcessError as e:
-            if e.returncode != 100:
-                raise
-            apt_install(assume_yes=True, fix_broken=True)
+        # Old NetworkManager Breaks new ppp, and by default apt configures each
+        # package the moment it's unpacked, which surfaces that Breaks as a hard
+        # dpkg error ("dependency problems prevent configuration of ppp") in the
+        # middle of the transaction instead of it being resolved by the ordering
+        # apt already computed. Deferring configuration (APT::Immediate-Configure=0)
+        # is Debian's own documented workaround for exactly this "dependency
+        # problems prevent configuration of X" failure on a release upgrade.
+        immediate_configure_off = ["APT::Immediate-Configure=0"]
+        apt_upgrade(
+            dist=True, assume_yes=True, options=immediate_configure_off
+        )  # this step is confirmed in simulating above
 
         logger.info("Performing actual upgrade - second stage (e2fsprogs update)")
         logger.debug("Updating packages list, may be outdated after long update procedure")
         apt_update()
-        apt_upgrade(dist=True, assume_yes=assume_yes)
+        apt_upgrade(dist=True, assume_yes=assume_yes, options=immediate_configure_off)
 
         logger.info("Performing actual upgrade - third stage (curl from trixie-backports)")
         upgrade_curl_from_backports(assume_yes)

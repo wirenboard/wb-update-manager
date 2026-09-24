@@ -106,7 +106,7 @@ def release_exists(state: SystemState):
     return True
 
 
-def run_apt(*cmd, assume_yes=False):
+def run_apt(*cmd, assume_yes=False, options=None, raise_on_error=True):
     args = ["apt-get", "-q"] + list(cmd)
     env = os.environ.copy()
 
@@ -119,18 +119,24 @@ def run_apt(*cmd, assume_yes=False):
         "--allow-downgrades",
     ]
 
+    for option in options or ():
+        args += ["-o", option]
+
     if assume_yes:
         args += ["--yes"]
 
     try:
-        run_cmd(*args, env=env, log_suffix=f"apt.{cmd[0]}")
+        kwargs = {"env": env, "log_suffix": f"apt.{cmd[0]}"}
+        if not raise_on_error:
+            kwargs["raise_on_error"] = False
+        return run_cmd(*args, **kwargs)
     except subprocess.CalledProcessError as e:
         if e.returncode == 1:
             raise UserAbortException() from e
         raise
 
 
-def run_cmd(*args, env=None, log_suffix=None):
+def run_cmd(*args, env=None, log_suffix=None, raise_on_error=True):
     if not log_suffix:
         log_suffix = args[0]
 
@@ -144,19 +150,24 @@ def run_cmd(*args, env=None, log_suffix=None):
 
     env["LANG"] = "C"
 
+    output_lines = []
     with subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
         try:
             with proc.stdout:
                 for line in iter(proc.stdout.readline, b""):
                     # remove all non-unicode characters from line for not to confuse ASCII terminal
-                    proc_logger.info(line.decode("ascii", "ignore").rstrip().rsplit("\r", 1)[-1])
+                    decoded = line.decode("ascii", "ignore").rstrip().rsplit("\r", 1)[-1]
+                    proc_logger.info(decoded)
+                    output_lines.append(decoded)
 
             retcode = proc.wait()
-            if retcode != 0:
+            if raise_on_error and retcode != 0:
                 raise subprocess.CalledProcessError(retcode, args)
         except KeyboardInterrupt:
             logger.info("Ctrl-C caught, waiting for child process %s to shut down", args[0])
             raise
+
+    return retcode, "\n".join(output_lines)
 
 
 def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filename=WB_SOURCES_LIST_FILENAME):
