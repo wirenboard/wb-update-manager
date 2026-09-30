@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade14) stable; urgency=medium
+
+  * WB8: upgrade libc6:arm64 and libc6:armhf together before trixie dist-upgrade
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Wed, 30 Sep 2026 13:00:00 +0400
+
 wb-update-manager (1.4.0-upgrade13) stable; urgency=medium
 
   * Resolve package dependency conflicts encountered during trixie dist-upgrade

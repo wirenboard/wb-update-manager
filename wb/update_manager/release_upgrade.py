@@ -338,6 +338,29 @@ BREAKS_BLOCKED_PACKAGE_RE = re.compile(r"^\s*\S+\s*:\s*Breaks:\s*(\S+)\s*\(", re
 MAX_BREAKS_RESOLVE_ATTEMPTS = 5
 
 
+def bootstrap_multiarch_libc():
+    result = subprocess.run(
+        ["dpkg", "--print-architecture"],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    if result.stdout.strip() != "arm64":
+        logger.info("Native architecture is not arm64, skipping multiarch libc bootstrap")
+        return
+
+    logger.info(
+        "Upgrading libc6:arm64 and libc6:armhf together before the dist-upgrade"
+    )
+
+    # libc6 is Multi-Arch: same, so all installed architecture variants must
+    # have the same version. Upgrade them in one transaction while apt's normal
+    # immediate configuration is still enabled. Otherwise the later
+    # Immediate-Configure=0 dist-upgrade can unpack a new native library before
+    # the matching native libc, leaving dpkg unable to run its own tar helper.
+    apt_install("libc6:arm64", "libc6:armhf", assume_yes=True)
+
+
 def find_breaks_held_back_packages():
     returncode, output = apt_upgrade(dist=True, dry_run=True, raise_on_error=False)
     if returncode == 0:
@@ -405,6 +428,8 @@ def main_upgrade(assume_yes):
         user_confirm(assume_yes=False)
 
     with mask_services(*services_to_mask):
+        bootstrap_multiarch_libc()
+
         logger.info("Performing actual upgrade")
 
         # Old NetworkManager Breaks new ppp, and by default apt configures each
