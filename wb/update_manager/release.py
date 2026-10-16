@@ -33,8 +33,8 @@ from .common import (
     generate_system_config,
     logger,
     release_exists,
+    restart_wb_rules,
     run_apt,
-    run_cmd,
     user_confirm,
 )
 from .release_upgrade import upgrade_new_debian_release
@@ -255,12 +255,7 @@ def update_second_stage(state: SystemState, old_state: SystemState, assume_yes=F
     logger.info("Cleaning up old packages")
     run_apt("autoremove", assume_yes=True)
 
-    logger.info("Restarting wb-rules to show actual release info in MQTT")
-    try:
-        run_cmd("/usr/sbin/invoke-rc.d", "wb-rules", "restart")
-    except subprocess.CalledProcessError:
-        pass
-
+    restart_wb_rules()
     logger.info("Update done! Please reboot the system")
 
 

@@ -23,6 +23,7 @@ from .common import (
     generate_system_config,
     logger,
     release_exists,
+    restart_wb_rules,
     run_cmd,
     user_confirm,
 )
@@ -600,7 +601,9 @@ def upgrade_new_debian_release(
 
         actual_upgrade(state, new_state, assume_yes=not confirm_steps)
 
+        restart_wb_rules()
         logger.info("Done! Please reboot system")
+
         set_global_progress_flag(None)
 
     except UserAbortException:
