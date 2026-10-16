@@ -168,6 +168,25 @@ def test_banner_installed(install_progress_banner_mock=None, **_):
     install_progress_banner_mock.assert_called()
 
 
+RESTART_WB_RULES_CALL = call("/usr/sbin/invoke-rc.d", "wb-rules", "restart", raise_on_error=False)
+
+
+@patch_all_systemish
+def test_wb_rules_restarted_after_upgrade(run_cmd_mock=None, **_):
+    assert run_usual_upgrade() == common.RETCODE_OK
+    assert run_cmd_mock.mock_calls[-1] == RESTART_WB_RULES_CALL
+
+
+@patch_all_systemish
+def test_no_wb_rules_restart_on_failed_upgrade(run_cmd_mock=None, **_):
+    with patch.object(
+        release_upgrade, "actual_upgrade", side_effect=subprocess.CalledProcessError(100, "apt-get")
+    ):
+        assert run_usual_upgrade() == 100
+
+    assert RESTART_WB_RULES_CALL not in run_cmd_mock.mock_calls
+
+
 @patch_all_systemish
 def test_fail_on_low_free_space(enough_free_space_mock=None, run_cmd_mock=None, **_):
     enough_free_space_mock.side_effect = (False,)
@@ -345,9 +364,7 @@ def test_breaks_packages_are_not_installed_when_upgrade_is_declined(caplog):
         with pytest.raises(common.UserAbortException):
             release_upgrade.main_upgrade(assume_yes=False)
 
-    assert (
-        "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
-    )
+    assert "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
     assert call("tmux", assume_yes=True) not in apt_install_mock.call_args_list
 
 
@@ -409,9 +426,7 @@ def test_multiarch_libc_bootstrap_upgrades_wb8_architectures_together():
 
 
 def test_multiarch_libc_bootstrap_is_skipped_for_armhf():
-    architecture_result = subprocess.CompletedProcess(
-        args=[], returncode=0, stdout="armhf\n"
-    )
+    architecture_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="armhf\n")
     apt_install_mock = MagicMock()
 
     with patch("wb.update_manager.release_upgrade.subprocess.run") as run_mock, patch.object(

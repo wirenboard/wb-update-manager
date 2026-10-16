@@ -36,6 +36,7 @@ __all__ = (
     "release_exists",
     "run_apt",
     "run_cmd",
+    "restart_wb_rules",
     "generate_system_config",
     "_cleanup_apt_cached_lists",
 )
@@ -168,6 +169,11 @@ def run_cmd(*args, env=None, log_suffix=None, raise_on_error=True):
             raise
 
     return retcode, "\n".join(output_lines)
+
+
+def restart_wb_rules():
+    logger.info("Restarting wb-rules to show actual release info in MQTT")
+    run_cmd("/usr/sbin/invoke-rc.d", "wb-rules", "restart", raise_on_error=False)
 
 
 def generate_sources_list(state: SystemState, base_url=DEFAULT_REPO_URL, filename=WB_SOURCES_LIST_FILENAME):
