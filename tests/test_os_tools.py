@@ -76,9 +76,7 @@ def test_enough_free_space_check(target, partition_exists, free_space_mb, expect
 def test_no_free_space_check(target, partition_exists, free_space_mb, expected_calls):
     state = common.SystemState("testing", target, "", True)
 
-    with patch("os.path.exists", return_value=partition_exists), patch(
-        "os.statvfs"
-    ) as statvfs_mock:
+    with patch("os.path.exists", return_value=partition_exists), patch("os.statvfs") as statvfs_mock:
         statvfs_mock.side_effect = tuple(vfs_megabytes(value) for value in free_space_mb)
 
         assert not release_upgrade.enough_free_space(state)

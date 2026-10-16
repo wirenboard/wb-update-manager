@@ -350,9 +350,7 @@ def bootstrap_multiarch_libc():
         logger.info("Native architecture is not arm64, skipping multiarch libc bootstrap")
         return
 
-    logger.info(
-        "Upgrading libc6:arm64 and libc6:armhf together before the dist-upgrade"
-    )
+    logger.info("Upgrading libc6:arm64 and libc6:armhf together before the dist-upgrade")
 
     # libc6 is Multi-Arch: same, so all installed architecture variants must
     # have the same version. Upgrade them in one transaction while apt's normal
@@ -370,9 +368,7 @@ def find_breaks_held_back_packages():
     return sorted(set(BREAKS_BLOCKED_PACKAGE_RE.findall(output)))
 
 
-def resolve_breaks_held_back_packages(
-    blocked_packages, max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS
-):
+def resolve_breaks_held_back_packages(blocked_packages, max_attempts=MAX_BREAKS_RESOLVE_ATTEMPTS):
     # A plain "apt-get dist-upgrade" refuses to introduce a package that was
     # renamed between releases (e.g. Debian's t64 64-bit time_t transition, which
     # is how tmux's libevent-core-2.1-7 dependency became libevent-core-2.1-7t64)

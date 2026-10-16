@@ -364,9 +364,7 @@ def test_breaks_packages_are_not_installed_when_upgrade_is_declined(caplog):
         with pytest.raises(common.UserAbortException):
             release_upgrade.main_upgrade(assume_yes=False)
 
-    assert (
-        "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
-    )
+    assert "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
     assert call("tmux", assume_yes=True) not in apt_install_mock.call_args_list
 
 
@@ -428,9 +426,7 @@ def test_multiarch_libc_bootstrap_upgrades_wb8_architectures_together():
 
 
 def test_multiarch_libc_bootstrap_is_skipped_for_armhf():
-    architecture_result = subprocess.CompletedProcess(
-        args=[], returncode=0, stdout="armhf\n"
-    )
+    architecture_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="armhf\n")
     apt_install_mock = MagicMock()
 
     with patch("wb.update_manager.release_upgrade.subprocess.run") as run_mock, patch.object(
