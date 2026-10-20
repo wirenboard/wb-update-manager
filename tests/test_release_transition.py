@@ -34,6 +34,7 @@ def patch_all_systemish(func):
                 (release_upgrade, "install_progress_banner"),
                 (release_upgrade, "release_exists"),
                 (release_upgrade, "enough_free_space"),
+                (release_upgrade, "system_dirs_permissions_ok"),
                 (release_upgrade, "bootstrap_multiarch_libc"),
             )
             for obj, function in functions:
@@ -47,6 +48,7 @@ def patch_all_systemish(func):
 
             kwargs["release_exists_mock"].side_effect = (True,)
             kwargs["enough_free_space_mock"].side_effect = (True,)
+            kwargs["system_dirs_permissions_ok_mock"].return_value = True
             kwargs["get_global_progress_flag_mock"].side_effect = ("",)
 
             return func(*args, **kwargs)
@@ -187,6 +189,26 @@ def test_no_free_space_check_after_interrupted_transition(
 
     enough_free_space_mock.assert_not_called()
     run_cmd_mock.assert_called()
+
+
+@pytest.mark.parametrize("progress_flag", ["", "initialize", "progress", "error"])
+@patch_all_systemish
+def test_fail_on_world_writable_system_dirs(
+    progress_flag,
+    system_dirs_permissions_ok_mock=None,
+    get_global_progress_flag_mock=None,
+    set_global_progress_flag_mock=None,
+    upgrade_and_maybe_switch_tool_mock=None,
+    run_cmd_mock=None,
+    **_,
+):
+    get_global_progress_flag_mock.side_effect = (progress_flag,)
+    system_dirs_permissions_ok_mock.return_value = False
+
+    assert run_usual_upgrade(no_preliminary_update=False) == common.RETCODE_FAULT
+    upgrade_and_maybe_switch_tool_mock.assert_not_called()
+    set_global_progress_flag_mock.assert_not_called()
+    run_cmd_mock.assert_not_called()
 
 
 @patch_all_systemish
@@ -345,9 +367,7 @@ def test_breaks_packages_are_not_installed_when_upgrade_is_declined(caplog):
         with pytest.raises(common.UserAbortException):
             release_upgrade.main_upgrade(assume_yes=False)
 
-    assert (
-        "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
-    )
+    assert "The following packages must be upgraded explicitly before the dist-upgrade: tmux" in caplog.text
     assert call("tmux", assume_yes=True) not in apt_install_mock.call_args_list
 
 
@@ -409,9 +429,7 @@ def test_multiarch_libc_bootstrap_upgrades_wb8_architectures_together():
 
 
 def test_multiarch_libc_bootstrap_is_skipped_for_armhf():
-    architecture_result = subprocess.CompletedProcess(
-        args=[], returncode=0, stdout="armhf\n"
-    )
+    architecture_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="armhf\n")
     apt_install_mock = MagicMock()
 
     with patch("wb.update_manager.release_upgrade.subprocess.run") as run_mock, patch.object(

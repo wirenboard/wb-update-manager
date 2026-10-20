@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade15) stable; urgency=medium
+
+  * Stop trixie upgrade with a clear message if system PATH directories are world-writable
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 20 Oct 2026 12:00:00 +0400
+
 wb-update-manager (1.4.0-upgrade14) stable; urgency=medium
 
   * WB8: upgrade libc6:arm64 and libc6:armhf together before trixie dist-upgrade

@@ -179,12 +179,12 @@ def update_first_stage(assume_yes=False, log_filename=None):
     user_confirm(
         textwrap.dedent(
             """
-                 Now the system will be updated using Apt without changing the release.
+            Now the system will be updated using Apt without changing the release.
 
-                 It is required to get latest state possible
-                 to make release change process more controllable.
+            It is required to get latest state possible
+            to make release change process more controllable.
 
-                 Make sure you have all your data backed up."""
+            Make sure you have all your data backed up."""
         ).strip(),
         assume_yes,
     )
