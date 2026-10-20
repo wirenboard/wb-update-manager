@@ -539,7 +539,7 @@ class TestUpdateStageBase:  # pylint: disable=too-few-public-methods
         side_effect = None if confirm else release.UserAbortException
         mocker.patch.object(release, "user_confirm", side_effect=side_effect)
         mocker.patch.object(release, "run_system_update")
-        mocker.patch.object(release, "run_cmd")
+        mocker.patch.object(release, "restart_wb_rules")
 
 
 class TestUpdateFirstStage(TestUpdateStageBase):
@@ -625,6 +625,7 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         )
         release.run_system_update.assert_called_once_with(assume_yes)
         release.run_apt.assert_called_once_with("autoremove", assume_yes=True)
+        release.restart_wb_rules.assert_called_once()
 
     @pytest.mark.parametrize("assume_yes", [True, False])
     def test_upgrade_release(self, mocker, assume_yes):
@@ -638,3 +639,4 @@ class TestUpdateSecondStage(TestUpdateStageBase):
         )
         release.run_system_update.assert_called_once_with(assume_yes)
         release.run_apt.assert_called_once_with("autoremove", assume_yes=True)
+        release.restart_wb_rules.assert_called_once()
