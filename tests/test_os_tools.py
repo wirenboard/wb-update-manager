@@ -1,3 +1,4 @@
+import os
 from collections import namedtuple
 from contextlib import ExitStack
 from unittest.mock import call, mock_open, patch
@@ -81,6 +82,39 @@ def test_no_free_space_check(target, partition_exists, free_space_mb, expected_c
 
         assert not release_upgrade.enough_free_space(state)
         assert statvfs_mock.call_args_list == expected_calls
+
+
+def test_find_world_writable_dirs(tmp_path):
+    tmp_path = tmp_path.resolve()
+    secure_dir = tmp_path / "usr" / "sbin"
+    insecure_dir = tmp_path / "usr" / "bin"
+    secure_dir.mkdir(parents=True)
+    insecure_dir.mkdir()
+    secure_dir.chmod(0o755)
+    insecure_dir.chmod(0o777)
+    # merged /usr: /bin -> usr/bin, must be reported once by its real path
+    os.symlink("usr/bin", tmp_path / "bin")
+
+    dirs = [str(path) for path in (secure_dir, insecure_dir, tmp_path / "bin", tmp_path / "missing")]
+
+    assert release_upgrade.find_world_writable_dirs(dirs) == [str(insecure_dir)]
+
+
+def test_find_world_writable_dirs_all_secure(tmp_path):
+    (tmp_path / "bin").mkdir(mode=0o755)
+
+    assert not release_upgrade.find_world_writable_dirs([str(tmp_path / "bin")])
+
+
+def test_system_dirs_permissions_check(caplog):
+    with patch.object(release_upgrade, "find_world_writable_dirs", return_value=[]):
+        assert release_upgrade.system_dirs_permissions_ok()
+
+    with patch.object(release_upgrade, "find_world_writable_dirs", return_value=["/usr/bin", "/usr/sbin"]):
+        assert not release_upgrade.system_dirs_permissions_ok()
+
+    assert "world-writable: /usr/bin, /usr/sbin" in caplog.text
+    assert "chmod o-w /usr/bin /usr/sbin" in caplog.text
 
 
 def test_temp_apt_policy_for_tool_cleanup():

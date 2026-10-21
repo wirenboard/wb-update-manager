@@ -2,6 +2,7 @@
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import textwrap
@@ -73,6 +74,38 @@ def enough_free_space(state: SystemState):
         return False
 
     return True
+
+
+# Debian default root PATH. Perl scripts running in taint mode (e.g. adduser, called from
+# maintainer scripts during dist-upgrade) refuse to run any command if a PATH entry is world-writable:
+# "Insecure directory in $ENV{PATH} while running with -T switch"
+SYSTEM_PATH_DIRS = ("/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin")
+
+
+def find_world_writable_dirs(dirs=SYSTEM_PATH_DIRS):
+    found = []
+    for path in dirs:
+        real_path = os.path.realpath(path)
+        try:
+            mode = os.stat(real_path).st_mode
+        except OSError:
+            continue
+        if mode & stat.S_IWOTH and real_path not in found:
+            found.append(real_path)
+    return found
+
+
+def system_dirs_permissions_ok():
+    insecure_dirs = find_world_writable_dirs()
+    if not insecure_dirs:
+        return True
+
+    logger.error(
+        "Upgrade stopped: system directories are world-writable: %s\nFix with: chmod o-w %s",
+        ", ".join(insecure_dirs),
+        " ".join(insecure_dirs),
+    )
+    return False
 
 
 TEMP_APT_PREFERENCE_FOR_TOOL = "/etc/apt/preferences.d/001wb-update-tool-bullseye"
@@ -568,6 +601,11 @@ def upgrade_new_debian_release(
     state: SystemState, log_filename, assume_yes=False, confirm_steps=False, no_preliminary_update=False
 ):
     try:
+        # checked on every run, not only on the first one: the upgrade may have already failed
+        # because of this and is being resumed
+        if not system_dirs_permissions_ok():
+            return RETCODE_FAULT
+
         progress_state = get_global_progress_flag()
         if not progress_state:
             if not enough_free_space(state):

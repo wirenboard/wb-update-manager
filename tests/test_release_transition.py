@@ -34,6 +34,7 @@ def patch_all_systemish(func):
                 (release_upgrade, "install_progress_banner"),
                 (release_upgrade, "release_exists"),
                 (release_upgrade, "enough_free_space"),
+                (release_upgrade, "system_dirs_permissions_ok"),
                 (release_upgrade, "bootstrap_multiarch_libc"),
             )
             for obj, function in functions:
@@ -47,6 +48,7 @@ def patch_all_systemish(func):
 
             kwargs["release_exists_mock"].side_effect = (True,)
             kwargs["enough_free_space_mock"].side_effect = (True,)
+            kwargs["system_dirs_permissions_ok_mock"].return_value = True
             kwargs["get_global_progress_flag_mock"].side_effect = ("",)
 
             return func(*args, **kwargs)
@@ -206,6 +208,26 @@ def test_no_free_space_check_after_interrupted_transition(
 
     enough_free_space_mock.assert_not_called()
     run_cmd_mock.assert_called()
+
+
+@pytest.mark.parametrize("progress_flag", ["", "initialize", "progress", "error"])
+@patch_all_systemish
+def test_fail_on_world_writable_system_dirs(
+    progress_flag,
+    system_dirs_permissions_ok_mock=None,
+    get_global_progress_flag_mock=None,
+    set_global_progress_flag_mock=None,
+    upgrade_and_maybe_switch_tool_mock=None,
+    run_cmd_mock=None,
+    **_,
+):
+    get_global_progress_flag_mock.side_effect = (progress_flag,)
+    system_dirs_permissions_ok_mock.return_value = False
+
+    assert run_usual_upgrade(no_preliminary_update=False) == common.RETCODE_FAULT
+    upgrade_and_maybe_switch_tool_mock.assert_not_called()
+    set_global_progress_flag_mock.assert_not_called()
+    run_cmd_mock.assert_not_called()
 
 
 @patch_all_systemish
