@@ -1,3 +1,9 @@
+wb-update-manager (1.4.0-upgrade17) stable; urgency=medium
+
+  * Upgrade libc6 before trixie dist-upgrade on all platforms, not only on WB8
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Wed, 21 Oct 2026 12:00:00 +0400
+
 wb-update-manager (1.4.0-upgrade16) stable; urgency=medium
 
   * Stop trixie upgrade with a clear message if system PATH directories are world-writable

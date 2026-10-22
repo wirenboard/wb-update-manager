@@ -35,7 +35,7 @@ def patch_all_systemish(func):
                 (release_upgrade, "release_exists"),
                 (release_upgrade, "enough_free_space"),
                 (release_upgrade, "system_dirs_permissions_ok"),
-                (release_upgrade, "bootstrap_multiarch_libc"),
+                (release_upgrade, "bootstrap_libc"),
             )
             for obj, function in functions:
                 mock_name = function + "_mock"
@@ -380,7 +380,7 @@ def test_breaks_packages_are_not_installed_when_upgrade_is_declined(caplog):
         apt_install=apt_install_mock,
         run_cmd=MagicMock(),
         find_breaks_held_back_packages=MagicMock(return_value=["tmux"]),
-        bootstrap_multiarch_libc=MagicMock(),
+        bootstrap_libc=MagicMock(),
         user_confirm=MagicMock(side_effect=common.UserAbortException),
     ):
         with pytest.raises(common.UserAbortException):
@@ -405,7 +405,7 @@ def test_breaks_resolution_and_actual_upgrade_are_confirmed_separately():
         run_cmd=MagicMock(),
         find_breaks_held_back_packages=MagicMock(return_value=["tmux"]),
         resolve_breaks_held_back_packages=MagicMock(side_effect=lambda _: calls.append("resolve")),
-        bootstrap_multiarch_libc=MagicMock(side_effect=lambda: calls.append("bootstrap-libc")),
+        bootstrap_libc=MagicMock(side_effect=lambda: calls.append("bootstrap-libc")),
         user_confirm=MagicMock(side_effect=lambda **_: calls.append("confirm")),
         mask_services=MagicMock(return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock())),
         upgrade_curl_from_backports=MagicMock(),
@@ -424,37 +424,44 @@ def test_breaks_resolution_and_actual_upgrade_are_confirmed_separately():
     ]
 
 
-def test_multiarch_libc_bootstrap_upgrades_wb8_architectures_together():
-    architecture_result = subprocess.CompletedProcess(
-        args=[],
-        returncode=0,
-        stdout="arm64\n",
-    )
+def run_bootstrap_libc(dpkg_query_stdout):
+    query_result = subprocess.CompletedProcess(args=[], returncode=0, stdout=dpkg_query_stdout)
     apt_install_mock = MagicMock()
 
     with patch("wb.update_manager.release_upgrade.subprocess.run") as run_mock, patch.object(
         release_upgrade, "apt_install", apt_install_mock
     ):
-        run_mock.return_value = architecture_result
-        release_upgrade.bootstrap_multiarch_libc()
+        run_mock.return_value = query_result
+        release_upgrade.bootstrap_libc()
 
     run_mock.assert_called_once_with(
-        ["dpkg", "--print-architecture"],
+        ["dpkg-query", "--showformat=${db:Status-Status} ${Architecture}\n", "--show", "libc6"],
         check=True,
         text=True,
         capture_output=True,
     )
+    return apt_install_mock
+
+
+def test_libc_bootstrap_upgrades_wb8_architectures_together():
+    apt_install_mock = run_bootstrap_libc("installed arm64\ninstalled armhf\n")
+
     apt_install_mock.assert_called_once_with("libc6:arm64", "libc6:armhf", assume_yes=True)
 
 
-def test_multiarch_libc_bootstrap_is_skipped_for_armhf():
-    architecture_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="armhf\n")
-    apt_install_mock = MagicMock()
+def test_libc_bootstrap_upgrades_native_libc_on_armhf():
+    apt_install_mock = run_bootstrap_libc("installed armhf\n")
 
-    with patch("wb.update_manager.release_upgrade.subprocess.run") as run_mock, patch.object(
-        release_upgrade, "apt_install", apt_install_mock
-    ):
-        run_mock.return_value = architecture_result
-        release_upgrade.bootstrap_multiarch_libc()
+    apt_install_mock.assert_called_once_with("libc6:armhf", assume_yes=True)
+
+
+def test_libc_bootstrap_ignores_not_installed_architectures():
+    apt_install_mock = run_bootstrap_libc("installed armhf\nconfig-files arm64\n")
+
+    apt_install_mock.assert_called_once_with("libc6:armhf", assume_yes=True)
+
+
+def test_libc_bootstrap_is_skipped_when_libc_is_not_installed():
+    apt_install_mock = run_bootstrap_libc("not-installed armhf\n")
 
     apt_install_mock.assert_not_called()

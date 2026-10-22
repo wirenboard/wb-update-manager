@@ -372,25 +372,33 @@ BREAKS_BLOCKED_PACKAGE_RE = re.compile(r"^\s*\S+\s*:\s*Breaks:\s*(\S+)\s*\(", re
 MAX_BREAKS_RESOLVE_ATTEMPTS = 5
 
 
-def bootstrap_multiarch_libc():
+def bootstrap_libc():
+    # libc6 is Multi-Arch: same; without an arch qualifier dpkg-query lists every
+    # architecture instance (arm64 and armhf on WB8, armhf only on WB6/WB7).
     result = subprocess.run(
-        ["dpkg", "--print-architecture"],
+        ["dpkg-query", "--showformat=${db:Status-Status} ${Architecture}\n", "--show", "libc6"],
         check=True,
         text=True,
         capture_output=True,
     )
-    if result.stdout.strip() != "arm64":
-        logger.info("Native architecture is not arm64, skipping multiarch libc bootstrap")
+    packages = []
+    for line in result.stdout.splitlines():
+        status, _, arch = line.partition(" ")
+        if status == "installed":
+            packages.append("libc6:" + arch)
+    if not packages:
+        logger.info("libc6 is not installed, skipping libc bootstrap")
         return
 
-    logger.info("Upgrading libc6:arm64 and libc6:armhf together before the dist-upgrade")
+    logger.info("Upgrading %s before the dist-upgrade", ", ".join(packages))
 
-    # libc6 is Multi-Arch: same, so all installed architecture variants must
-    # have the same version. Upgrade them in one transaction while apt's normal
-    # immediate configuration is still enabled. Otherwise the later
-    # Immediate-Configure=0 dist-upgrade can unpack a new native library before
-    # the matching native libc, leaving dpkg unable to run its own tar helper.
-    apt_install("libc6:arm64", "libc6:armhf", assume_yes=True)
+    # Upgrade libc6 (all installed architecture variants together, since
+    # Multi-Arch: same requires them to have the same version) in its own
+    # transaction while apt's normal immediate configuration is still enabled.
+    # Otherwise the later Immediate-Configure=0 dist-upgrade can unpack a new
+    # library before the matching libc, leaving dpkg unable to run its own tar
+    # helper.
+    apt_install(*packages, assume_yes=True)
 
 
 def find_breaks_held_back_packages():
@@ -458,7 +466,7 @@ def main_upgrade(assume_yes):
         user_confirm(assume_yes=False)
 
     with mask_services(*services_to_mask):
-        bootstrap_multiarch_libc()
+        bootstrap_libc()
 
         logger.info("Performing actual upgrade")
 
