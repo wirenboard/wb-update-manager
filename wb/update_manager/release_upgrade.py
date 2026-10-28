@@ -34,6 +34,7 @@ from .tools import (
     apt_install,
     apt_mark_hold,
     apt_mark_unhold,
+    apt_purge,
     apt_update,
     apt_upgrade,
     dpkg_reconfigure,
@@ -401,6 +402,98 @@ def bootstrap_libc():
     apt_install(*packages, assume_yes=True)
 
 
+# dist-upgrade only removes packages dropped from Debian by trixie or replaced through
+# Conflicts, so dpkg keeps their conffiles, and some of those keep running: e.g. ntp's
+# /etc/cron.daily/ntp reads /etc/ntp.conf, which is gone after the switch to ntpsec, so
+# cron mails an error every day. Packages already in this state before the upgrade were
+# removed by the user, who may want their configs back, so only the ones removed during
+# the upgrade are purged. The snapshot is kept on disk because an interrupted upgrade is
+# resumed by a new process.
+CONFIG_FILES_SNAPSHOT = "/var/lib/wb-debian-release-update-config-files-packages"
+
+
+def packages_in_config_files_state():
+    # ${binary:Package} qualifies Multi-Arch: same packages with their architecture,
+    # so only the removed instance gets purged (e.g. libfoo:armhf on WB8)
+    result = subprocess.run(
+        ["dpkg-query", "--showformat=${db:Status-Status} ${binary:Package}\n", "--show"],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    packages = set()
+    for line in result.stdout.splitlines():
+        status, _, package = line.partition(" ")
+        if status == "config-files":
+            packages.add(package)
+    return packages
+
+
+def read_config_files_snapshot():
+    with open(CONFIG_FILES_SNAPSHOT, encoding="utf-8") as f:
+        return set(f.read().split())
+
+
+def save_config_files_snapshot():
+    if os.path.exists(CONFIG_FILES_SNAPSHOT):
+        logger.info("Keeping config-files packages snapshot from the interrupted upgrade")
+        return
+
+    packages = packages_in_config_files_state()
+    # A truncated snapshot would make every package removed by the user look like
+    # removed by the upgrade, so it is written to a temp file and renamed into place
+    temp_filename = CONFIG_FILES_SNAPSHOT + ".tmp"
+    with open(temp_filename, "w", encoding="utf-8") as f:
+        f.writelines(package + "\n" for package in sorted(packages))
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temp_filename, CONFIG_FILES_SNAPSHOT)
+
+
+def discard_unused_config_files_snapshot():
+    # The snapshot of a failed upgrade is kept for resuming it, but if the upgrade
+    # hasn't removed anything yet and is never resumed, a stale snapshot would make
+    # packages removed by the user later on look like removed by the upgrade
+    try:
+        packages_before = read_config_files_snapshot()
+    except FileNotFoundError:
+        return
+
+    if packages_in_config_files_state() <= packages_before:
+        logger.info("No packages removed by the failed upgrade, discarding config-files packages snapshot")
+        os.remove(CONFIG_FILES_SNAPSHOT)
+
+
+@contextmanager
+def config_files_snapshot():
+    save_config_files_snapshot()
+    try:
+        yield
+    except BaseException:
+        discard_unused_config_files_snapshot()
+        raise
+
+
+def purge_packages_removed_by_upgrade(assume_yes=False):
+    try:
+        packages_before = read_config_files_snapshot()
+    except FileNotFoundError:
+        logger.warning("No config-files packages snapshot, not purging packages removed by the upgrade")
+        return
+
+    to_purge = sorted(packages_in_config_files_state() - packages_before)
+    if to_purge:
+        logger.info("Purging leftovers of packages removed by the upgrade: %s", ", ".join(to_purge))
+        try:
+            apt_purge(*to_purge, assume_yes=assume_yes)
+        except (subprocess.CalledProcessError, UserAbortException):
+            # The system is already upgraded; failing here would make every resumed
+            # upgrade fail at the same purge again
+            logger.warning("Packages %s are not purged, purge them manually", ", ".join(to_purge))
+
+    os.remove(CONFIG_FILES_SNAPSHOT)
+
+
 def find_breaks_held_back_packages():
     returncode, output = apt_upgrade(dist=True, dry_run=True, raise_on_error=False)
     if returncode == 0:
@@ -585,16 +678,18 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
         assume_yes,
     )
 
-    bootstrap_debian_archive_keyring(assume_yes=True)
+    with config_files_snapshot():
+        bootstrap_debian_archive_keyring(assume_yes=True)
 
-    with ExitStack() as stack:
-        # these operation order is not important
-        stack.enter_context(apply_new_system_config(current_state, new_state))
-        stack.enter_context(make_temp_apt_configs())
-        stack.enter_context(hold_packages("wb-update-manager", "wb-release-info"))
-        main_upgrade(assume_yes)
+        with ExitStack() as stack:
+            # these operation order is not important
+            stack.enter_context(apply_new_system_config(current_state, new_state))
+            stack.enter_context(make_temp_apt_configs())
+            stack.enter_context(hold_packages("wb-update-manager", "wb-release-info"))
+            main_upgrade(assume_yes)
 
     reconfigure_wb_configs()
+    purge_packages_removed_by_upgrade(assume_yes)
     apt_autoremove(assume_yes)
 
     update_release_info()

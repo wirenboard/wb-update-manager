@@ -36,6 +36,9 @@ def patch_all_systemish(func):
                 (release_upgrade, "enough_free_space"),
                 (release_upgrade, "system_dirs_permissions_ok"),
                 (release_upgrade, "bootstrap_libc"),
+                (release_upgrade, "save_config_files_snapshot"),
+                (release_upgrade, "discard_unused_config_files_snapshot"),
+                (release_upgrade, "purge_packages_removed_by_upgrade"),
             )
             for obj, function in functions:
                 mock_name = function + "_mock"
@@ -484,3 +487,162 @@ def test_failed_index_download_stops_before_dist_upgrade(
     assert not any(c.args[:3] == ("apt-get", "-q", "dist-upgrade") for c in run_cmd_mock.mock_calls)
     assert generate_system_config_mock.mock_calls[-1] == call(STATE_STRETCH)
     _cleanup_apt_cached_lists_mock.assert_called()
+
+
+@patch_all_systemish
+def test_packages_removed_by_upgrade_are_purged(
+    save_config_files_snapshot_mock=None,
+    discard_unused_config_files_snapshot_mock=None,
+    purge_packages_removed_by_upgrade_mock=None,
+    **_,
+):
+    with patch.object(release_upgrade, "bootstrap_debian_archive_keyring"):
+        assert run_usual_upgrade() == 0
+
+    save_config_files_snapshot_mock.assert_called_once_with()
+    discard_unused_config_files_snapshot_mock.assert_not_called()
+    purge_packages_removed_by_upgrade_mock.assert_called_once_with(True)
+
+
+@patch_all_systemish
+def test_purge_follows_confirm_steps(purge_packages_removed_by_upgrade_mock=None, **_):
+    with patch.object(release_upgrade, "user_confirm"), patch.object(
+        release_upgrade, "bootstrap_debian_archive_keyring"
+    ):
+        assert run_usual_upgrade(confirm_steps=True) == 0
+
+    purge_packages_removed_by_upgrade_mock.assert_called_once_with(False)
+
+
+@patch_all_systemish
+def test_packages_removed_by_autoremove_are_not_purged(
+    run_cmd_mock=None, purge_packages_removed_by_upgrade_mock=None, **_
+):
+    def is_autoremove(c):
+        return c.args[:3] == ("apt-get", "-q", "autoremove")
+
+    autoremove_calls_before_purge = []
+    purge_packages_removed_by_upgrade_mock.side_effect = lambda _: autoremove_calls_before_purge.extend(
+        filter(is_autoremove, run_cmd_mock.mock_calls)
+    )
+    with patch.object(release_upgrade, "bootstrap_debian_archive_keyring"):
+        assert run_usual_upgrade() == 0
+
+    purge_packages_removed_by_upgrade_mock.assert_called_once()
+    assert not autoremove_calls_before_purge
+    assert any(is_autoremove(c) for c in run_cmd_mock.mock_calls)
+
+
+@patch_all_systemish
+def test_unused_snapshot_is_discarded_on_failed_upgrade(
+    discard_unused_config_files_snapshot_mock=None, purge_packages_removed_by_upgrade_mock=None, **_
+):
+    with patch.object(release_upgrade, "main_upgrade", side_effect=KeyboardInterrupt), patch.object(
+        release_upgrade, "bootstrap_debian_archive_keyring"
+    ):
+        assert run_usual_upgrade() == common.RETCODE_USER_ABORT
+
+    discard_unused_config_files_snapshot_mock.assert_called_once_with()
+    purge_packages_removed_by_upgrade_mock.assert_not_called()
+
+
+def mock_dpkg_query(dpkg_query_stdout):
+    return patch(
+        "wb.update_manager.release_upgrade.subprocess.run",
+        return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout=dpkg_query_stdout),
+    )
+
+
+DPKG_QUERY_BEFORE_UPGRADE = "installed ntp\nconfig-files old-user-removed\ninstalled libfoo:armhf\n"
+DPKG_QUERY_AFTER_UPGRADE = (
+    "config-files ntp\nconfig-files old-user-removed\nconfig-files libfoo:armhf\ninstalled ntpsec\n"
+)
+
+
+def test_only_packages_removed_by_upgrade_are_purged(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    apt_purge_mock = MagicMock()
+
+    with patch.object(release_upgrade, "CONFIG_FILES_SNAPSHOT", str(snapshot)), patch.object(
+        release_upgrade, "apt_purge", apt_purge_mock
+    ):
+        with mock_dpkg_query(DPKG_QUERY_BEFORE_UPGRADE) as run_mock:
+            release_upgrade.save_config_files_snapshot()
+        run_mock.assert_called_once_with(
+            ["dpkg-query", "--showformat=${db:Status-Status} ${binary:Package}\n", "--show"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
+        with mock_dpkg_query(DPKG_QUERY_AFTER_UPGRADE):
+            release_upgrade.purge_packages_removed_by_upgrade(assume_yes=True)
+
+    apt_purge_mock.assert_called_once_with("libfoo:armhf", "ntp", assume_yes=True)
+    assert not snapshot.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_snapshot_from_interrupted_upgrade_is_kept(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    snapshot.write_text("old-user-removed\n")
+
+    with patch.object(release_upgrade, "CONFIG_FILES_SNAPSHOT", str(snapshot)):
+        # the interrupted upgrade has already removed ntp
+        with mock_dpkg_query(DPKG_QUERY_AFTER_UPGRADE) as run_mock:
+            release_upgrade.save_config_files_snapshot()
+
+    run_mock.assert_not_called()
+    assert snapshot.read_text() == "old-user-removed\n"
+
+
+def test_nothing_is_purged_without_snapshot(tmp_path):
+    apt_purge_mock = MagicMock()
+
+    with patch.object(release_upgrade, "CONFIG_FILES_SNAPSHOT", str(tmp_path / "snapshot")), patch.object(
+        release_upgrade, "apt_purge", apt_purge_mock
+    ), mock_dpkg_query(DPKG_QUERY_AFTER_UPGRADE):
+        release_upgrade.purge_packages_removed_by_upgrade()
+
+    apt_purge_mock.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "purge_error", [subprocess.CalledProcessError(100, "apt-get"), common.UserAbortException()]
+)
+def test_failed_purge_does_not_fail_upgrade(tmp_path, purge_error):
+    snapshot = tmp_path / "snapshot"
+    snapshot.write_text("old-user-removed\n")
+    apt_purge_mock = MagicMock(side_effect=purge_error)
+
+    with patch.object(release_upgrade, "CONFIG_FILES_SNAPSHOT", str(snapshot)), patch.object(
+        release_upgrade, "apt_purge", apt_purge_mock
+    ), mock_dpkg_query(DPKG_QUERY_AFTER_UPGRADE):
+        release_upgrade.purge_packages_removed_by_upgrade()
+
+    apt_purge_mock.assert_called_once()
+    assert not snapshot.exists()
+
+
+def test_unused_snapshot_is_discarded(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    snapshot.write_text("old-user-removed\n")
+
+    with patch.object(release_upgrade, "CONFIG_FILES_SNAPSHOT", str(snapshot)), mock_dpkg_query(
+        DPKG_QUERY_BEFORE_UPGRADE
+    ):
+        release_upgrade.discard_unused_config_files_snapshot()
+
+    assert not snapshot.exists()
+
+
+def test_snapshot_is_kept_when_upgrade_removed_packages(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    snapshot.write_text("old-user-removed\n")
+
+    with patch.object(release_upgrade, "CONFIG_FILES_SNAPSHOT", str(snapshot)), mock_dpkg_query(
+        DPKG_QUERY_AFTER_UPGRADE
+    ):
+        release_upgrade.discard_unused_config_files_snapshot()
+
+    assert snapshot.read_text() == "old-user-removed\n"

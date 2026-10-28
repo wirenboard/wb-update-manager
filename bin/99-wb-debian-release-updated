@@ -18,7 +18,7 @@ Please reboot your Wiren Board."
 DONE_MSG_RU="Версия Debian обновилась до trixie!
 Пожалуйста, перезагрузите Wiren Board."
 
-if [ "$LANG" == "ru-RU.UTF-8" ]; then
+if [ "$LANG" == "ru_RU.UTF-8" ]; then
     PROGRESS_MSG="$PROGRESS_MSG_RU"
     DONE_MSG="$DONE_MSG_RU"
     ERROR_MSG="$ERROR_MSG_RU"
