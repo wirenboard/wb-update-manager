@@ -6,7 +6,11 @@ from .common import run_apt, run_cmd
 
 
 def apt_update():
-    run_apt("update")
+    # By default apt-get update treats a transient network failure (e.g. InRelease download timeout)
+    # as a warning and exits with 0, keeping the old index or none at all. During the release
+    # upgrade the WB sources point to a new suite, so there's no old index, and dist-upgrade
+    # silently removes every WB package. Error-Mode=any turns such failures into a hard error.
+    run_apt("update", options=["APT::Update::Error-Mode=any"])
 
 
 def apt_purge(*packages, assume_yes=False):

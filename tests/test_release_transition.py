@@ -465,3 +465,22 @@ def test_libc_bootstrap_is_skipped_when_libc_is_not_installed():
     apt_install_mock = run_bootstrap_libc("not-installed armhf\n")
 
     apt_install_mock.assert_not_called()
+
+
+@patch_all_systemish
+def test_failed_index_download_stops_before_dist_upgrade(
+    run_cmd_mock=None, generate_system_config_mock=None, _cleanup_apt_cached_lists_mock=None, **_
+):
+    def fail_on_apt_update(*args, **_kwargs):
+        if args[:3] == ("apt-get", "-q", "update"):
+            raise subprocess.CalledProcessError(100, args)
+        return (0, "")
+
+    run_cmd_mock.side_effect = fail_on_apt_update
+
+    with patch.object(release_upgrade, "bootstrap_debian_archive_keyring"):
+        assert run_usual_upgrade() == 100
+
+    assert not any(c.args[:3] == ("apt-get", "-q", "dist-upgrade") for c in run_cmd_mock.mock_calls)
+    assert generate_system_config_mock.mock_calls[-1] == call(STATE_STRETCH)
+    _cleanup_apt_cached_lists_mock.assert_called()

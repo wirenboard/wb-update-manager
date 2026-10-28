@@ -5,7 +5,7 @@ from unittest.mock import call, mock_open, patch
 
 import pytest
 
-from wb.update_manager import common, release_upgrade
+from wb.update_manager import common, release_upgrade, tools
 
 FakeStatvfs = namedtuple("FakeStatvfs", "f_bavail f_bsize")
 
@@ -165,3 +165,10 @@ def test_temp_apt_configs_clean_cache_on_error():
         my_create.assert_called_once()
         my_remove.assert_called_once()
         my_cleanup.assert_called_once()
+
+
+def test_apt_update_fails_on_transient_network_errors():
+    with patch.object(tools, "run_apt") as run_apt_mock:
+        tools.apt_update()
+
+    run_apt_mock.assert_called_once_with("update", options=["APT::Update::Error-Mode=any"])
