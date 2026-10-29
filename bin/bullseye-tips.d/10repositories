@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "$LANG" == "ru-RU.UTF-8" ]; then
+if [ "$LANG" == "ru_RU.UTF-8" ]; then
     HEADER="Найдены потенциально устаревшие репозитории в файлах:"
     FOOTER="Измените эти файлы вручную."
 else

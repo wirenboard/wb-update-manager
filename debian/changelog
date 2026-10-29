@@ -1,3 +1,10 @@
+wb-update-manager (1.4.0-upgrade19) stable; urgency=medium
+
+  * Purge packages removed by trixie upgrade (e.g. ntp, whose stale
+    /etc/cron.daily/ntp fails daily), keeping ones removed by the user before
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Wed, 28 Oct 2026 12:00:00 +0400
+
 wb-update-manager (1.4.0-upgrade18) stable; urgency=medium
 
   * Stop trixie upgrade if apt-get update fails to download any repository index
