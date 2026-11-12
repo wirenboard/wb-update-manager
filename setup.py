@@ -12,7 +12,7 @@ setup(
     name="wb-update-manager",
     version=get_version(),
     description="Wirenboard software updates and release management tool",
-    license="MIT",
+    license="MIT-WB",
     author="Nikita Maslov",
     author_email="nikita.maslov@wirenboard.ru",
     maintainer="Wiren Board Team",
