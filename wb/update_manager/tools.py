@@ -22,7 +22,7 @@ def apt_install(*packages, assume_yes=False, fix_broken=False):
     run_apt(*cmd, *packages, assume_yes=assume_yes)
 
 
-def apt_upgrade(
+def apt_upgrade(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     dist=True,
     assume_yes=False,
     options=None,

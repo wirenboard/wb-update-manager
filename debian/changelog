@@ -1,3 +1,10 @@
+wb-update-manager (1.4.0-upgrade20) stable; urgency=medium
+
+  * Restore ntp.service after trixie upgrade: removing bullseye ntp masked it while
+    ntpsec was installed, so the ntpsec alias was never created
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 26 Nov 2026 12:15:33 +0000
+
 wb-update-manager (1.4.0-upgrade19) stable; urgency=medium
 
   * Purge packages removed by trixie upgrade (e.g. ntp, whose stale

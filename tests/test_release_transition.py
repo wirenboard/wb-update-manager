@@ -39,6 +39,7 @@ def patch_all_systemish(func):
                 (release_upgrade, "save_config_files_snapshot"),
                 (release_upgrade, "discard_unused_config_files_snapshot"),
                 (release_upgrade, "purge_packages_removed_by_upgrade"),
+                (release_upgrade, "restore_service_aliases"),
             )
             for obj, function in functions:
                 mock_name = function + "_mock"
@@ -215,7 +216,7 @@ def test_no_free_space_check_after_interrupted_transition(
 
 @pytest.mark.parametrize("progress_flag", ["", "initialize", "progress", "error"])
 @patch_all_systemish
-def test_fail_on_world_writable_system_dirs(
+def test_fail_on_world_writable_system_dirs(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     progress_flag,
     system_dirs_permissions_ok_mock=None,
     get_global_progress_flag_mock=None,
@@ -534,6 +535,42 @@ def test_packages_removed_by_autoremove_are_not_purged(
 
 
 @patch_all_systemish
+def test_service_aliases_restored_after_purge(
+    purge_packages_removed_by_upgrade_mock=None, restore_service_aliases_mock=None, **_
+):
+    order = []
+    purge_packages_removed_by_upgrade_mock.side_effect = lambda _: order.append("purge")
+    restore_service_aliases_mock.side_effect = lambda: order.append("restore")
+    with patch.object(release_upgrade, "bootstrap_debian_archive_keyring"):
+        assert run_usual_upgrade() == 0
+
+    assert order == ["purge", "restore"]
+
+
+@pytest.mark.parametrize("state,enabled", [("enabled", True), ("disabled", False), ("", False)])
+def test_service_aliases_restored_only_for_enabled_service(state, enabled):
+    with patch.object(release_upgrade, "run_cmd", return_value=(0, state)) as is_enabled_mock, patch.object(
+        tools, "run_cmd", return_value=(0, "")
+    ) as enable_mock:
+        release_upgrade.restore_service_aliases()
+
+    is_enabled_mock.assert_called_once_with(
+        "systemctl", "is-enabled", "ntpsec.service", log_suffix="systemctl", raise_on_error=False
+    )
+    if enabled:
+        enable_mock.assert_called_once_with("systemctl", "enable", "ntpsec.service", log_suffix="systemctl")
+    else:
+        enable_mock.assert_not_called()
+
+
+def test_failed_alias_restore_does_not_fail_upgrade():
+    with patch.object(release_upgrade, "run_cmd", return_value=(0, "enabled")), patch.object(
+        tools, "run_cmd", side_effect=subprocess.CalledProcessError(1, "systemctl")
+    ):
+        release_upgrade.restore_service_aliases()
+
+
+@patch_all_systemish
 def test_unused_snapshot_is_discarded_on_failed_upgrade(
     discard_unused_config_files_snapshot_mock=None, purge_packages_removed_by_upgrade_mock=None, **_
 ):
@@ -580,7 +617,7 @@ def test_only_packages_removed_by_upgrade_are_purged(tmp_path):
 
     apt_purge_mock.assert_called_once_with("libfoo:armhf", "ntp", assume_yes=True)
     assert not snapshot.exists()
-    assert list(tmp_path.iterdir()) == []
+    assert not list(tmp_path.iterdir())
 
 
 def test_snapshot_from_interrupted_upgrade_is_kept(tmp_path):
