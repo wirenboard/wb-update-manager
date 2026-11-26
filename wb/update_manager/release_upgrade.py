@@ -494,12 +494,6 @@ def purge_packages_removed_by_upgrade(assume_yes=False):
     os.remove(CONFIG_FILES_SNAPSHOT)
 
 
-# Debhelper's postrm of a package with an init script masks its units on remove and unmasks
-# them on purge. dist-upgrade removes bullseye ntp and installs ntpsec in between, so ntpsec's
-# postinst can't create its Alias=ntp.service over the mask ("ntp.service already exists and is
-# a symlink to /dev/null"). The purge drops the mask but doesn't bring the alias back: the
-# upgraded system runs ntpsec.service, while ntp.service doesn't exist. Enabling the unit again
-# creates the missing aliases and keeps the existing links.
 SERVICES_TO_RE_ENABLE_AFTER_PURGE = ("ntpsec.service",)
 
 
