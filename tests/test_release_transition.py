@@ -39,6 +39,7 @@ def patch_all_systemish(func):
                 (release_upgrade, "save_config_files_snapshot"),
                 (release_upgrade, "discard_unused_config_files_snapshot"),
                 (release_upgrade, "purge_packages_removed_by_upgrade"),
+                (release_upgrade, "restore_service_aliases"),
             )
             for obj, function in functions:
                 mock_name = function + "_mock"
@@ -531,6 +532,42 @@ def test_packages_removed_by_autoremove_are_not_purged(
     purge_packages_removed_by_upgrade_mock.assert_called_once()
     assert not autoremove_calls_before_purge
     assert any(is_autoremove(c) for c in run_cmd_mock.mock_calls)
+
+
+@patch_all_systemish
+def test_service_aliases_restored_after_purge(
+    purge_packages_removed_by_upgrade_mock=None, restore_service_aliases_mock=None, **_
+):
+    order = []
+    purge_packages_removed_by_upgrade_mock.side_effect = lambda _: order.append("purge")
+    restore_service_aliases_mock.side_effect = lambda: order.append("restore")
+    with patch.object(release_upgrade, "bootstrap_debian_archive_keyring"):
+        assert run_usual_upgrade() == 0
+
+    assert order == ["purge", "restore"]
+
+
+@pytest.mark.parametrize("state,enabled", [("enabled", True), ("disabled", False), ("", False)])
+def test_service_aliases_restored_only_for_enabled_service(state, enabled):
+    with patch.object(release_upgrade, "run_cmd", return_value=(0, state)) as is_enabled_mock, patch.object(
+        tools, "run_cmd", return_value=(0, "")
+    ) as enable_mock:
+        release_upgrade.restore_service_aliases()
+
+    is_enabled_mock.assert_called_once_with(
+        "systemctl", "is-enabled", "ntpsec.service", log_suffix="systemctl", raise_on_error=False
+    )
+    if enabled:
+        enable_mock.assert_called_once_with("systemctl", "enable", "ntpsec.service", log_suffix="systemctl")
+    else:
+        enable_mock.assert_not_called()
+
+
+def test_failed_alias_restore_does_not_fail_upgrade():
+    with patch.object(release_upgrade, "run_cmd", return_value=(0, "enabled")), patch.object(
+        tools, "run_cmd", side_effect=subprocess.CalledProcessError(1, "systemctl")
+    ):
+        release_upgrade.restore_service_aliases()
 
 
 @patch_all_systemish

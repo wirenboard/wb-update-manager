@@ -494,6 +494,28 @@ def purge_packages_removed_by_upgrade(assume_yes=False):
     os.remove(CONFIG_FILES_SNAPSHOT)
 
 
+# Debhelper's postrm of a package with an init script masks its units on remove and unmasks
+# them on purge. dist-upgrade removes bullseye ntp and installs ntpsec in between, so ntpsec's
+# postinst can't create its Alias=ntp.service over the mask ("ntp.service already exists and is
+# a symlink to /dev/null"). The purge drops the mask but doesn't bring the alias back: the
+# upgraded system runs ntpsec.service, while ntp.service doesn't exist. Enabling the unit again
+# creates the missing aliases and keeps the existing links.
+SERVICES_TO_RE_ENABLE_AFTER_PURGE = ("ntpsec.service",)
+
+
+def restore_service_aliases():
+    for service in SERVICES_TO_RE_ENABLE_AFTER_PURGE:
+        _, state = run_cmd("systemctl", "is-enabled", service, log_suffix="systemctl", raise_on_error=False)
+        if state.strip() != "enabled":
+            continue
+        logger.info("Enabling %s again to restore its aliases", service)
+        try:
+            systemd_enable(service)
+        except subprocess.CalledProcessError:
+            # The system is already upgraded, like the purge this is not worth failing it
+            logger.warning("Aliases of %s are not restored, run 'systemctl enable %s' manually", service, service)
+
+
 def find_breaks_held_back_packages():
     returncode, output = apt_upgrade(dist=True, dry_run=True, raise_on_error=False)
     if returncode == 0:
@@ -690,6 +712,7 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
 
     reconfigure_wb_configs()
     purge_packages_removed_by_upgrade(assume_yes)
+    restore_service_aliases()
     apt_autoremove(assume_yes)
 
     update_release_info()
