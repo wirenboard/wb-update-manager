@@ -507,7 +507,9 @@ def restore_service_aliases():
             systemd_enable(service)
         except subprocess.CalledProcessError:
             # The system is already upgraded, like the purge this is not worth failing it
-            logger.warning("Aliases of %s are not restored, run 'systemctl enable %s' manually", service, service)
+            logger.warning(
+                "Aliases of %s are not restored, run 'systemctl enable %s' manually", service, service
+            )
 
 
 def find_breaks_held_back_packages():
