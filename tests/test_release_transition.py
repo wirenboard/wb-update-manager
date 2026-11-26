@@ -216,7 +216,7 @@ def test_no_free_space_check_after_interrupted_transition(
 
 @pytest.mark.parametrize("progress_flag", ["", "initialize", "progress", "error"])
 @patch_all_systemish
-def test_fail_on_world_writable_system_dirs(
+def test_fail_on_world_writable_system_dirs(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     progress_flag,
     system_dirs_permissions_ok_mock=None,
     get_global_progress_flag_mock=None,
@@ -617,7 +617,7 @@ def test_only_packages_removed_by_upgrade_are_purged(tmp_path):
 
     apt_purge_mock.assert_called_once_with("libfoo:armhf", "ntp", assume_yes=True)
     assert not snapshot.exists()
-    assert list(tmp_path.iterdir()) == []
+    assert not list(tmp_path.iterdir())
 
 
 def test_snapshot_from_interrupted_upgrade_is_kept(tmp_path):

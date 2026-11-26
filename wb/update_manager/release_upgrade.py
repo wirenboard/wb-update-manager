@@ -46,8 +46,8 @@ from .tools import (
 
 
 def _free_space_mb(path):
-    stat = os.statvfs(path)
-    return stat.f_bavail * stat.f_bsize / 1024 / 1024
+    fs_stat = os.statvfs(path)
+    return fs_stat.f_bavail * fs_stat.f_bsize / 1024 / 1024
 
 
 def enough_free_space(state: SystemState):
@@ -719,7 +719,7 @@ def actual_upgrade(current_state, new_state, assume_yes=False):
     touch_system_update_done_flag()
 
 
-def upgrade_new_debian_release(
+def upgrade_new_debian_release(  # pylint: disable=too-many-branches
     state: SystemState, log_filename, assume_yes=False, confirm_steps=False, no_preliminary_update=False
 ):
     try:
